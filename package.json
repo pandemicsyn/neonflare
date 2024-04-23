@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@conform-to/react": "^1.0.6",
-    "@conform-to/zod": "^1.0.6",
+    "@conform-to/zod": "^1.1.1",
     "@prisma/adapter-d1": "^5.12.1",
     "@prisma/client": "^5.12.1",
     "@remix-run/cloudflare": "^2.8.1",
