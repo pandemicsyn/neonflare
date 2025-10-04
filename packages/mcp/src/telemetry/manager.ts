@@ -1,4 +1,4 @@
-import { TelemetryManager, TelemetryProviderConfig, ProviderFactory } from './interfaces.js';
+import { TelemetryManager, TelemetryProviderConfig } from './interfaces.js';
 import { MetricsProvider, TraceProvider } from './interfaces.js';
 import { TelemetryEvent, MCPMetrics, MCPMethodType } from '../types/index.js';
 import {
@@ -26,11 +26,12 @@ export class TelemetryProviderFactory {
           headers: config.config?.otlp?.headers
         });
 
-      case 'composite':
+      case 'composite': {
         const providers = (config.config?.composite?.providers || []).map(p =>
           TelemetryProviderFactory.createProvider(p)
         );
         return new CompositeTelemetryProvider(providers);
+      }
 
       default:
         throw new Error(`Unknown telemetry provider type: ${config.type}`);

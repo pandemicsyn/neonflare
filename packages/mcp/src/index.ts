@@ -81,7 +81,7 @@ export {
   measurePerformance,
   measureSyncPerformance
 } from './core/performance.js';
-import { createMCPInstrumentation } from './instrumentation/index.js';
+import { Attributes } from '@opentelemetry/api';
 import { MCPTracker } from './core/tracker.js';
 import { MCPInstrumentation } from './instrumentation/index.js';
 import { ContextInjectionMiddleware } from './enrichment/context-injector.js';
@@ -134,9 +134,13 @@ export function trackmcp(
   const contextInjector = new ContextInjectionMiddleware(config?.contextInjection);
   
   // Store instrumentation on server for later access
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).__neonflare_instrumentation = instrumentation;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).__neonflare_tracker = tracker;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).__neonflare_context_injector = contextInjector;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).__neonflare_config = config;
   
   // Wrap server methods with instrumentation
@@ -162,9 +166,11 @@ function wrapServerMethods(
   const originalSetRequestHandler = server.setRequestHandler.bind(server);
 
   // Intercept setRequestHandler to wrap all method handlers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.setRequestHandler = function(schema: any, handler: any) {
     const method = schema.shape?.method?.value || 'unknown';
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedHandler = async (request: any, extra: any) => {
       const requestId = request.id || `req_${Date.now()}`;
 
@@ -182,7 +188,7 @@ function wrapServerMethods(
           span.setAttributes({
             'mcp.tool.ai_context': aiContext,
             'mcp.tool.ai_intent': aiContext.substring(0, 200) // Truncated for storage
-          } as any);
+          } as unknown as Attributes);
         }
       }
 
@@ -190,7 +196,7 @@ function wrapServerMethods(
       if (config?.projectId) {
         span.setAttributes({
           'neonflare.project_id': config.projectId
-        } as any);
+        } as unknown as Attributes);
       }
 
       try {
@@ -205,12 +211,12 @@ function wrapServerMethods(
         });
 
         return result;
-      } catch (error: any) {
+      } catch (error: unknown) {
         tracker.endMCPSpan(context.operationId, {
           success: false,
           error: {
-            code: error.code || 'HANDLER_ERROR',
-            message: error.message || 'Handler execution failed',
+            code: (error as Error & { code?: string }).code || 'HANDLER_ERROR',
+            message: (error as Error).message || 'Handler execution failed',
             details: error
           },
           duration: Date.now() - context.startTime,
@@ -229,6 +235,7 @@ function wrapServerMethods(
  * Get instrumentation instance from an instrumented server
  */
 export function getInstrumentation(server: Server): MCPInstrumentation | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (server as any).__neonflare_instrumentation;
 }
 
@@ -236,6 +243,7 @@ export function getInstrumentation(server: Server): MCPInstrumentation | undefin
  * Get tracker instance from an instrumented server
  */
 export function getTracker(server: Server): MCPTracker | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (server as any).__neonflare_tracker;
 }
 
@@ -243,5 +251,6 @@ export function getTracker(server: Server): MCPTracker | undefined {
  * Get context injector instance from an instrumented server
  */
 export function getContextInjector(server: Server): ContextInjectionMiddleware | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (server as any).__neonflare_context_injector;
 }

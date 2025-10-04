@@ -1,6 +1,5 @@
 import { Span } from '@opentelemetry/api';
 import { MCPOperationContext, MCPSpanAttributes } from '../types/index.js';
-import { createTimingAttributes, createResourceAttributes } from '../utils/index.js';
 
 /**
  * Performance monitoring configuration
@@ -82,7 +81,6 @@ export class PerformanceMonitor {
     }
 
     const startTime = performance.now();
-    const startMemory = this.getMemoryUsage();
 
     try {
       const result = await operation();
@@ -139,7 +137,6 @@ export class PerformanceMonitor {
     }
 
     const startTime = performance.now();
-    const startMemory = this.getMemoryUsage();
 
     try {
       const result = operation();
@@ -383,13 +380,16 @@ export function withPerformanceMonitoring(
 ) {
   const monitor = new PerformanceMonitor(config);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function <T extends (...args: any[]) => any>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     target: any,
     propertyKey: string,
     descriptor: TypedPropertyDescriptor<T>
   ) {
     const originalMethod = descriptor.value!;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (this: any, ...args: any[]) {
       return monitor.monitorAsync(
         () => originalMethod.apply(this, args),
@@ -410,13 +410,16 @@ export function withSyncPerformanceMonitoring(
 ) {
   const monitor = new PerformanceMonitor(config);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function <T extends (...args: any[]) => any>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     target: any,
     propertyKey: string,
     descriptor: TypedPropertyDescriptor<T>
   ) {
     const originalMethod = descriptor.value!;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = function (this: any, ...args: any[]) {
       return monitor.monitorSync(
         () => originalMethod.apply(this, args),

@@ -1,4 +1,5 @@
 import { EnrichmentData, TelemetryEvent, MCPSpanAttributes } from '../types/index.js';
+import { hostname } from 'os';
 
 /**
  * Enrichment provider interface for adding contextual data
@@ -41,7 +42,7 @@ export class EnvironmentEnrichmentProvider implements EnrichmentProvider {
 
   private getHostname(): string {
     try {
-      return require('os').hostname();
+      return hostname();
     } catch {
       return 'unknown';
     }
@@ -202,13 +203,13 @@ export class GeographicEnrichmentProvider implements EnrichmentProvider {
  * Custom enrichment provider for application-specific context
  */
 export class CustomEnrichmentProvider implements EnrichmentProvider {
-  private customData: Record<string, any> = {};
+  private customData: Record<string, unknown> = {};
 
-  setCustomData(data: Record<string, any>): void {
+  setCustomData(data: Record<string, unknown>): void {
     this.customData = { ...this.customData, ...data };
   }
 
-  addCustomField(key: string, value: any): void {
+  addCustomField(key: string, value: unknown): void {
     this.customData[key] = value;
   }
 
@@ -403,7 +404,7 @@ export class EnrichmentManager {
   /**
    * Set custom data
    */
-  setCustomData(data: Record<string, any>): void {
+  setCustomData(data: Record<string, unknown>): void {
     const customProvider = this.compositeProvider['providers'].find(
       p => p instanceof CustomEnrichmentProvider
     ) as CustomEnrichmentProvider;
