@@ -1,6 +1,7 @@
 # Neonflare
 
-[![CI](https://github.com/your-username/neonflare/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/neonflare/actions/workflows/ci.yml)
+[![CI](https://github.com/pandemicsyn/neonflare/actions/workflows/ci.yml/badge.svg)](https://github.com/pandemicsyn/neonflare/actions/workflows/ci.yml)
+![Vibe Code](https://img.shields.io/badge/Vibe_Code-99%25-purple?color=purple)
 
 Neonflare is a TypeScript package that provides OpenTelemetry instrumentation for MCP (Model Context Protocol) servers via [Rotel](https://github.com/streamfold/rotel). It offers comprehensive observability into MCP server usage patterns, performance metrics, and user interactions.
 
