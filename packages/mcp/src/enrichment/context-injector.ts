@@ -21,8 +21,10 @@ export interface ContextInjectionConfig {
  * Inject a context parameter into a tool's input schema
  */
 export function injectContextIntoSchema(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
   config: ContextInjectionConfig = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const {
     enabled = true,
@@ -78,6 +80,7 @@ export function injectContextIntoSchema(
  * Extract context from tool call arguments
  */
 export function extractContextFromArgs(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any,
   parameterName: string = 'context'
 ): string | undefined {
@@ -98,8 +101,10 @@ export function extractContextFromArgs(
  * Remove context parameter from arguments before passing to tool implementation
  */
 export function stripContextFromArgs(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any,
   parameterName: string = 'context'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   if (!args || typeof args !== 'object') {
     return args;
@@ -113,6 +118,7 @@ export function stripContextFromArgs(
  * Validate that a schema has context injection
  */
 export function hasContextInjection(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
   parameterName: string = 'context'
 ): boolean {
@@ -138,6 +144,7 @@ export class ContextInjectionMiddleware {
   /**
    * Process a tool schema during registration
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   processToolSchema(toolName: string, schema: any): any {
     if (!this.config.enabled) {
       return schema;
@@ -150,8 +157,10 @@ export class ContextInjectionMiddleware {
   /**
    * Process tool arguments during execution
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   processToolArguments(toolName: string, args: any): {
     context?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cleanedArgs: any;
   } {
     const context = extractContextFromArgs(args, this.config.parameterName);

@@ -44,7 +44,7 @@ export class MCPTracker {
    * Initialize the OpenTelemetry tracer
    */
   private initializeTracer(): void {
-    const resource = Resource.default().merge(new Resource({
+    Resource.default().merge(new Resource({
       [SemanticResourceAttributes.SERVICE_NAME]: this.config.serviceName || 'mcp-server',
       [SemanticResourceAttributes.SERVICE_VERSION]: this.config.serviceVersion || '1.0.0',
       [SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE]: 'nodejs',
@@ -59,7 +59,7 @@ export class MCPTracker {
   /**
    * Create a new operation context for tracking
    */
-  createOperationContext(method: string, requestId?: string, params?: any): MCPOperationContext {
+  createOperationContext(method: string, requestId?: string, params?: unknown): MCPOperationContext {
     return {
       operationId: this.generateOperationId(),
       startTime: Date.now(),
@@ -271,7 +271,7 @@ export class MCPTracker {
   /**
    * Extract method from operation ID
    */
-  private extractMethodFromOperationId(operationId: string): string {
+  private extractMethodFromOperationId(_operationId: string): string {
     return 'unknown';
   }
 
@@ -285,7 +285,7 @@ export class MCPTracker {
   /**
    * Get current metrics
    */
-  getCurrentMetrics(): any {
+  getCurrentMetrics(): Record<string, unknown> {
     return {
       totalRequests: this.telemetryEvents.filter(e => e.type === TelemetryEventType.REQUEST_END).length,
       successfulRequests: this.telemetryEvents.filter(e =>
@@ -363,7 +363,7 @@ export class MCPTracker {
    */
   async shutdown(): Promise<void> {
     // End all active spans
-    for (const [operationId, span] of this.activeSpans) {
+    for (const [, span] of this.activeSpans) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: 'Tracker shutdown' });
       span.end();
     }

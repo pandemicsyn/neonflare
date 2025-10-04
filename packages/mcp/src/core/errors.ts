@@ -25,7 +25,7 @@ export enum MCPErrorType {
 export class MCPError extends Error {
   public readonly type: MCPErrorType;
   public readonly code: string | number;
-  public readonly details?: any;
+  public readonly details?: unknown;
   public readonly retryable: boolean;
   public readonly timestamp: number;
 
@@ -33,7 +33,7 @@ export class MCPError extends Error {
     type: MCPErrorType,
     message: string,
     code?: string | number,
-    details?: any,
+    details?: unknown,
     retryable: boolean = false
   ) {
     super(message);
@@ -447,19 +447,19 @@ export function resetErrorHandler(): void {
  * Convenience functions for creating common MCP errors
  */
 export const Errors = {
-  invalidRequest: (message: string, details?: any) =>
+  invalidRequest: (message: string, details?: unknown) =>
     new MCPError(MCPErrorType.INVALID_REQUEST, message, 'INVALID_REQUEST', details),
 
   methodNotFound: (method: string) =>
     new MCPError(MCPErrorType.METHOD_NOT_FOUND, `Method '${method}' not found`, 'METHOD_NOT_FOUND', { method }),
 
-  invalidParams: (param: string, details?: any) =>
+  invalidParams: (param: string, details?: unknown) =>
     new MCPError(MCPErrorType.INVALID_PARAMS, `Invalid parameter: ${param}`, 'INVALID_PARAMS', details),
 
-  internalError: (message: string, details?: any) =>
+  internalError: (message: string, details?: unknown) =>
     new MCPError(MCPErrorType.INTERNAL_ERROR, message, 'INTERNAL_ERROR', details),
 
-  authenticationFailed: (details?: any) =>
+  authenticationFailed: (details?: unknown) =>
     new MCPError(MCPErrorType.AUTHENTICATION_FAILED, 'Authentication failed', 'AUTH_FAILED', details),
 
   authorizationFailed: (resource?: string) =>
@@ -477,9 +477,9 @@ export const Errors = {
   cancelled: (operation: string) =>
     new MCPError(MCPErrorType.CANCELLED, `Operation cancelled: ${operation}`, 'CANCELLED', { operation }),
 
-  connectionError: (target: string, details?: any) =>
+  connectionError: (target: string, details?: unknown) =>
     new MCPError(MCPErrorType.CONNECTION_ERROR, `Connection error: ${target}`, 'CONNECTION_ERROR', details, true),
 
-  protocolError: (message: string, details?: any) =>
+  protocolError: (message: string, details?: unknown) =>
     new MCPError(MCPErrorType.PROTOCOL_ERROR, message, 'PROTOCOL_ERROR', details)
 };

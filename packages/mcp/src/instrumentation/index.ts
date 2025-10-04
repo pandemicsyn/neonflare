@@ -22,9 +22,9 @@ export class MCPInstrumentation {
    * Instrument a tools/list method call
    */
   async instrumentToolsList(
-    handler: () => Promise<any>,
+    handler: () => Promise<unknown>,
     requestId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.instrumentMethod(
       MCPMethodType.TOOLS_LIST,
       handler,
@@ -36,10 +36,13 @@ export class MCPInstrumentation {
    * Instrument a tools/call method call
    */
   async instrumentToolsCall(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (toolName: string, args: any) => Promise<any>,
     toolName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: any,
     requestId?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
     return this.instrumentMethod(
       MCPMethodType.TOOLS_CALL,
@@ -53,9 +56,9 @@ export class MCPInstrumentation {
    * Instrument a resources/list method call
    */
   async instrumentResourcesList(
-    handler: () => Promise<any>,
+    handler: () => Promise<unknown>,
     requestId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.instrumentMethod(
       MCPMethodType.RESOURCES_LIST,
       handler,
@@ -67,10 +70,10 @@ export class MCPInstrumentation {
    * Instrument a resources/read method call
    */
   async instrumentResourcesRead(
-    handler: (uri: string) => Promise<any>,
+    handler: (uri: string) => Promise<unknown>,
     uri: string,
     requestId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.instrumentMethod(
       MCPMethodType.RESOURCES_READ,
       () => handler(uri),
@@ -83,9 +86,9 @@ export class MCPInstrumentation {
    * Instrument a prompts/list method call
    */
   async instrumentPromptsList(
-    handler: () => Promise<any>,
+    handler: () => Promise<unknown>,
     requestId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.instrumentMethod(
       MCPMethodType.PROMPTS_LIST,
       handler,
@@ -97,10 +100,13 @@ export class MCPInstrumentation {
    * Instrument a prompts/get method call
    */
   async instrumentPromptsGet(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (promptName: string, args?: any) => Promise<any>,
     promptName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args?: any,
     requestId?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
     return this.instrumentMethod(
       MCPMethodType.PROMPTS_GET,
@@ -114,9 +120,9 @@ export class MCPInstrumentation {
    * Instrument a ping method call
    */
   async instrumentPing(
-    handler: () => Promise<any>,
+    handler: () => Promise<unknown>,
     requestId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.instrumentMethod(
       MCPMethodType.PING,
       handler,
@@ -129,10 +135,11 @@ export class MCPInstrumentation {
    */
   private async instrumentMethod(
     methodType: MCPMethodType,
-    handler: () => Promise<any>,
+    handler: () => Promise<unknown>,
     requestId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     methodParams?: any
-  ): Promise<any> {
+  ): Promise<unknown> {
     const context = this.tracker.createOperationContext(
       methodType,
       requestId,
@@ -141,7 +148,7 @@ export class MCPInstrumentation {
 
     this.methodContexts.set(context.operationId, context);
 
-    const span = this.tracker.startMCPSpan(methodType, context);
+    this.tracker.startMCPSpan(methodType, context);
 
     const methodCall: MCPMethodCall = {
       method: methodType,
@@ -176,8 +183,8 @@ export class MCPInstrumentation {
       const methodResult: MCPMethodResult = {
         success: false,
         error: {
-          code: (error as any)?.code || 'METHOD_ERROR',
-          message: (error as any)?.message || 'Method execution failed',
+          code: (error as Error & { code?: string })?.code || 'METHOD_ERROR',
+          message: (error as Error)?.message || 'Method execution failed',
           details: error
         },
         duration: Date.now() - context.startTime,

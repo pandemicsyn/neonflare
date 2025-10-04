@@ -1,4 +1,4 @@
-import { Attributes, Span, Link, SpanContext } from '@opentelemetry/api';
+import { Attributes, Link, SpanContext } from '@opentelemetry/api';
 import { MCPSpanAttributes } from '../types/index.js';
 
 /**
@@ -27,7 +27,7 @@ export function createMCPAttributes(
  * Create error attributes for failed operations
  */
 export function createErrorAttributes(
-  error: Error | { code: string | number; message: string; details?: any }
+  error: Error | { code: string | number; message: string; details?: unknown }
 ): Partial<MCPSpanAttributes> {
   if (error instanceof Error) {
     return {
@@ -77,7 +77,7 @@ export function createCorrelationAttributes(
 /**
  * Sanitize attribute values to ensure they're valid for OpenTelemetry
  */
-export function sanitizeAttributeValue(value: any): string | number | boolean {
+export function sanitizeAttributeValue(value: unknown): string | number | boolean {
   if (value === null || value === undefined) {
     return '';
   }
@@ -114,7 +114,7 @@ export function sanitizeAttributeValue(value: any): string | number | boolean {
 /**
  * Sanitize all attributes in an object
  */
-export function sanitizeAttributes(attributes: Record<string, any>): Attributes {
+export function sanitizeAttributes(attributes: Record<string, unknown>): Attributes {
   const sanitized: Attributes = {};
 
   for (const [key, value] of Object.entries(attributes)) {
@@ -331,7 +331,7 @@ export function isValidAttributeKey(key: string): boolean {
 /**
  * Validate and sanitize attribute keys
  */
-export function sanitizeAttributeKeys(attributes: Record<string, any>): Attributes {
+export function sanitizeAttributeKeys(attributes: Record<string, unknown>): Attributes {
   const sanitized: Attributes = {};
 
   for (const [key, value] of Object.entries(attributes)) {
@@ -461,7 +461,7 @@ export class AttributeManager {
     return merged;
   }
 
-  filter(predicate: (key: string, value: any) => boolean): AttributeManager {
+  filter(predicate: (key: string, value: unknown) => boolean): AttributeManager {
     const filtered = new AttributeManager();
     for (const [key, value] of this.attributes) {
       if (predicate(key, value)) {

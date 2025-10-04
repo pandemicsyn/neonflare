@@ -12,7 +12,7 @@ export interface RotelConfig {
   /** Specific instrumentations to enable */
   instrumentations?: string[];
   /** Custom rotel configuration */
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 /**
@@ -78,6 +78,7 @@ export interface MCPOperationContext {
   /** Session ID for stateful operations */
   sessionId?: string;
   /** Request metadata */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
   /** Timestamp when operation started */
   startTime: number;
@@ -107,8 +108,10 @@ export interface MCPMethodCall {
   /** The MCP method being called */
   method: MCPMethodType;
   /** Parameters passed to the method */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   params?: Record<string, any>;
   /** Method call metadata */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
   /** Timestamp when call was made */
   timestamp: number;
@@ -121,11 +124,13 @@ export interface MCPMethodResult {
   /** Whether the call was successful */
   success: boolean;
   /** Result data if successful */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
   /** Error information if failed */
   error?: {
     code: string | number;
     message: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     details?: any;
   };
   /** Duration of the method call in milliseconds */
@@ -211,6 +216,7 @@ export interface TelemetryEvent {
   /** Timestamp when event occurred */
   timestamp: number;
   /** Event data */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>;
   /** Associated span context */
   spanContext?: {
@@ -236,6 +242,7 @@ export interface EnrichmentData {
   /** Custom tags for categorization */
   tags?: string[];
   /** Business context information */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   businessContext?: Record<string, any>;
   /** Performance metrics */
   performance?: {
@@ -256,6 +263,7 @@ export interface InstrumentationHook {
   /** Called when an error occurs */
   onError?: (context: MCPOperationContext, error: Error) => Promise<void> | void;
   /** Called to enrich span attributes */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   enrichAttributes?: (context: MCPOperationContext, attributes: MCPSpanAttributes) => Promise<Record<string, any>> | Record<string, any>;
   /** Called to enrich telemetry events */
   enrichEvent?: (event: TelemetryEvent) => Promise<TelemetryEvent> | TelemetryEvent;
