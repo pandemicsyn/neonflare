@@ -22,7 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -39,16 +39,16 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.52.0",
-    "@opentelemetry/resources": "^1.25.0",
-    "@opentelemetry/sdk-trace-node": "^1.25.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.205.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-trace-node": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.25.0",
     "@streamfold/rotel": "latest"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",
-    "@vitest/ui": "^2.1.9",
+    "@vitest/ui": "^3.2.4",
     "tsup": "^8.0.0",
-    "vitest": "^2.1.9"
+    "vitest": "^3.2.4"
   }
 }
