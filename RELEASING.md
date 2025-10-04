@@ -35,6 +35,7 @@ This document outlines the steps to release packages in the Neonflare monorepo.
      ```
 
    This will:
+   - Run tests, linting, and build
    - Update `packages/mcp/package.json` version
    - Create a git commit
    - Create a git tag (e.g., `v0.1.1`)
