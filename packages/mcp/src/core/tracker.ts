@@ -1,6 +1,4 @@
 import { trace, Tracer, Span, SpanStatusCode, Attributes } from '@opentelemetry/api';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import {
   MCPInstrumentationConfig,
   MCPOperationContext,
@@ -44,13 +42,6 @@ export class MCPTracker {
    * Initialize the OpenTelemetry tracer
    */
   private initializeTracer(): void {
-    Resource.default().merge(new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: this.config.serviceName || 'mcp-server',
-      [SemanticResourceAttributes.SERVICE_VERSION]: this.config.serviceVersion || '1.0.0',
-      [SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE]: 'nodejs',
-      [SemanticResourceAttributes.TELEMETRY_SDK_NAME]: 'opentelemetry',
-    }));
-
     // For now, we'll use a simple console-based setup
     // In a production environment, you'd configure proper exporters
     this.tracer = trace.getTracer('neonflare-mcp', this.config.serviceVersion);

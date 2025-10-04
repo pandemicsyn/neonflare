@@ -2,6 +2,7 @@
   "name": "neonflare",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Neonflare - OpenTelemetry instrumentation for various protocols",
   "scripts": {
     "build": "pnpm -r build",
@@ -10,11 +11,13 @@
     "dev": "pnpm -r --parallel dev"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^24.6.2",
     "typescript": "^5.3.0",
     "prettier": "^3.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0"
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "eslint": "^9.37.0",
+    "@eslint/js": "^9.37.0",
+    "globals": "^15.0.0"
   }
 }
