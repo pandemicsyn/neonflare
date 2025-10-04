@@ -9,9 +9,9 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "dev": "pnpm -r --parallel dev",
-    "release:patch": "cd packages/mcp && npm version patch && git push origin main && git push origin --tags",
-    "release:minor": "cd packages/mcp && npm version minor && git push origin main && git push origin --tags",
-    "release:major": "cd packages/mcp && npm version major && git push origin main && git push origin --tags"
+    "release:patch": "pnpm test && pnpm lint && pnpm build && cd packages/mcp && npm version patch && git push origin main && git push origin --tags",
+    "release:minor": "pnpm test && pnpm lint && pnpm build && cd packages/mcp && npm version minor && git push origin main && git push origin --tags",
+    "release:major": "pnpm test && pnpm lint && pnpm build && cd packages/mcp && npm version major && git push origin main && git push origin --tags"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",
