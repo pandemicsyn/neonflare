@@ -146,7 +146,11 @@ export function trackmcp(
 }
 
 /**
- * Wrap MCP server methods with automatic instrumentation and context injection
+ * Wrap MCP server methods with automatic instrumentation
+ *
+ * Note: Context injection is handled at the application level by modifying
+ * tool schemas before calling trackmcp(). The server wrapping focuses on
+ * intercepting handler execution for tracing and telemetry.
  */
 function wrapServerMethods(
   server: Server,
@@ -156,65 +160,23 @@ function wrapServerMethods(
   config?: import('./types/index.js').MCPInstrumentationConfig
 ): void {
   const originalSetRequestHandler = server.setRequestHandler.bind(server);
-  
+
   // Intercept setRequestHandler to wrap all method handlers
   server.setRequestHandler = function(schema: any, handler: any) {
     const method = schema.shape?.method?.value || 'unknown';
-    
-    // Modify schema for tool calls to inject context
-    let modifiedSchema = schema;
-    if (method === 'tools/call' && schema.shape?.params?.shape?.arguments) {
-      const originalArgsSchema = schema.shape.params.shape.arguments._def.innerType;
-      const injectedSchema = contextInjector.processToolSchema(
-        schema.shape.params.shape.name?._def.value || 'unknown',
-        originalArgsSchema
-      );
-      
-      // Update the schema with injected context
-      modifiedSchema = {
-        ...schema,
-        shape: {
-          ...schema.shape,
-          params: {
-            ...schema.shape.params,
-            shape: {
-              ...schema.shape.params.shape,
-              arguments: {
-                ...schema.shape.params.shape.arguments,
-                _def: {
-                  ...schema.shape.params.shape.arguments._def,
-                  innerType: injectedSchema
-                }
-              }
-            }
-          }
-        }
-      };
-    }
-    
+
     const wrappedHandler = async (request: any, extra: any) => {
       const requestId = request.id || `req_${Date.now()}`;
-      
+
       const context = tracker.createOperationContext(method, requestId, request.params);
       const span = tracker.startMCPSpan(method, context);
-      
-      // Extract AI context if this is a tool call
+
+      // Extract AI context if this is a tool call and context was injected
       let aiContext: string | undefined;
-      let cleanedParams = request.params;
-      
-      if (method === 'tools/call' && request.params?.arguments) {
-        const processed = contextInjector.processToolArguments(
-          request.params.name || 'unknown',
-          request.params.arguments
-        );
-        aiContext = processed.context;
-        
-        // Pass cleaned arguments to handler (without context param)
-        cleanedParams = {
-          ...request.params,
-          arguments: processed.cleanedArgs
-        };
-        
+
+      if (method === 'tools/call' && request.params?.arguments?.context) {
+        aiContext = request.params.arguments.context;
+
         // Add AI context to span
         if (aiContext) {
           span.setAttributes({
@@ -223,25 +185,25 @@ function wrapServerMethods(
           } as any);
         }
       }
-      
+
       // Add project ID to span if configured
       if (config?.projectId) {
         span.setAttributes({
           'neonflare.project_id': config.projectId
         } as any);
       }
-      
+
       try {
-        // Call handler with potentially cleaned params
-        const result = await handler({ ...request, params: cleanedParams }, extra);
-        
+        // Call original handler
+        const result = await handler(request, extra);
+
         tracker.endMCPSpan(context.operationId, {
           success: true,
           data: result,
           duration: Date.now() - context.startTime,
           timestamp: Date.now()
         });
-        
+
         return result;
       } catch (error: any) {
         tracker.endMCPSpan(context.operationId, {
@@ -254,12 +216,12 @@ function wrapServerMethods(
           duration: Date.now() - context.startTime,
           timestamp: Date.now()
         });
-        
+
         throw error;
       }
     };
-    
-    return originalSetRequestHandler(modifiedSchema, wrappedHandler);
+
+    return originalSetRequestHandler(schema, wrappedHandler);
   };
 }
 

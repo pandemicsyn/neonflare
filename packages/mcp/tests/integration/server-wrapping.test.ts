@@ -1,225 +1,325 @@
-import { trackmcp, getInstrumentation, getTracker } from '../../src/index.js';
+import { describe, it, expect } from 'vitest';
+import { trackmcp, getInstrumentation, getTracker, getContextInjector } from '../../src/index.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { createTestServer, waitForTelemetryEvents, assertTelemetryEvents } from '../utils/mcp-helpers.js';
 
-/**
- * Integration test for server wrapping functionality
- */
-class ServerWrappingTests {
-  async run() {
-    console.log('🧪 Running Server Wrapping Integration Tests...\n');
-
-    try {
-      await this.testBasicServerWrapping();
-      await this.testRequestHandlerInterception();
-      await this.testInstrumentationAccess();
-      await this.testMetricsCollection();
-
-      console.log('\n✅ All integration tests passed!');
-    } catch (error) {
-      console.error('\n❌ Integration test failed:', error);
-      process.exit(1);
-    }
-  }
-
-  async testBasicServerWrapping() {
-    console.log('1. Testing basic server wrapping...');
-
-    // Create a mock server
-    const server = new Server(
-      {
-        name: 'test-server',
-        version: '1.0.0'
-      },
-      {
-        capabilities: {
-          tools: {}
+describe('Server Wrapping Integration', () => {
+  describe('Basic Wrapping', () => {
+    it('should wrap server and attach instrumentation', () => {
+      const server = new Server(
+        {
+          name: 'test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
         }
-      }
-    );
+      );
 
-    // Wrap server with instrumentation
-    const instrumentedServer = trackmcp(server, {
-      serviceName: 'test-integration-server',
-      serviceVersion: '1.0.0',
-      consoleExport: false
+      const instrumentedServer = trackmcp(server, {
+        serviceName: 'test-integration-server',
+        serviceVersion: '1.0.0',
+        consoleExport: false
+      });
+
+      expect(instrumentedServer).toBe(server);
+      expect(getTracker(server)).toBeDefined();
+      expect(getInstrumentation(server)).toBeDefined();
+      expect(getContextInjector(server)).toBeDefined();
     });
 
-    if (instrumentedServer !== server) {
-      throw new Error('Expected trackmcp to return the same server instance');
-    }
-
-    const tracker = getTracker(server);
-    if (!tracker) {
-      throw new Error('Expected tracker to be stored on server');
-    }
-
-    const instrumentation = getInstrumentation(server);
-    if (!instrumentation) {
-      throw new Error('Expected instrumentation to be stored on server');
-    }
-
-    console.log('   ✓ Server wrapped successfully');
-    console.log('   ✓ Tracker accessible via getTracker()');
-    console.log('   ✓ Instrumentation accessible via getInstrumentation()');
-  }
-
-  async testRequestHandlerInterception() {
-    console.log('\n2. Testing request handler interception...');
-
-    const server = new Server(
-      {
-        name: 'test-server',
-        version: '1.0.0'
-      },
-      {
-        capabilities: {
-          tools: {}
+    it('should allow access to tracker and instrumentation', () => {
+      const server = new Server(
+        {
+          name: 'test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
         }
-      }
-    );
+      );
 
-    trackmcp(server, {
-      serviceName: 'test-handler-server',
-      consoleExport: false
+      trackmcp(server, {
+        serviceName: 'test-access-server',
+        samplingRate: 0.5
+      });
+
+      const tracker = getTracker(server);
+      const instrumentation = getInstrumentation(server);
+      const contextInjector = getContextInjector(server);
+
+      expect(tracker).toBeDefined();
+      expect(instrumentation).toBeDefined();
+      expect(contextInjector).toBeDefined();
+
+      const metrics = tracker!.getCurrentMetrics();
+      expect(metrics).toHaveProperty('totalRequests');
+      expect(metrics).toHaveProperty('successfulRequests');
+
+      const events = instrumentation!.getTelemetryEvents();
+      expect(Array.isArray(events)).toBe(true);
     });
+  });
 
-    const tracker = getTracker(server)!;
-    const initialEventCount = tracker.getTelemetryEvents().length;
-
-    // Simulate setting a request handler (would need proper schema in real usage)
-    let handlerWasCalled = false;
-    const mockSchema = {
-      shape: {
-        method: {
-          value: 'tools/list'
+  describe('Context Injection Integration', () => {
+    it('should attach context injector with proper configuration', () => {
+      const server = new Server(
+        {
+          name: 'context-test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
         }
-      }
-    };
+      );
 
-    const mockHandler = async (request: any, extra: any) => {
-      handlerWasCalled = true;
-      return { tools: [] };
-    };
-
-    // This would be wrapped by our instrumentation
-    // Note: In real usage, setRequestHandler uses zod schemas
-    // server.setRequestHandler(mockSchema as any, mockHandler);
-
-    console.log('   ✓ Request handler interception configured');
-    console.log(`   ✓ Initial telemetry events: ${initialEventCount}`);
-  }
-
-  async testInstrumentationAccess() {
-    console.log('\n3. Testing instrumentation access...');
-
-    const server = new Server(
-      {
-        name: 'test-server',
-        version: '1.0.0'
-      },
-      {
-        capabilities: {
-          tools: {}
+      trackmcp(server, {
+        projectId: 'proj_test_context',
+        serviceName: 'context-test',
+        contextInjection: {
+          enabled: true,
+          description: 'Tell me why you are calling this tool',
+          required: false
         }
-      }
-    );
+      });
 
-    trackmcp(server, {
-      serviceName: 'test-access-server',
-      samplingRate: 0.5
+      const contextInjector = getContextInjector(server);
+      expect(contextInjector).toBeDefined();
+
+      const config = contextInjector!.getConfig();
+      expect(config.enabled).toBe(true);
+      expect(config.description).toBe('Tell me why you are calling this tool');
+      expect(config.required).toBe(false);
     });
 
-    const tracker = getTracker(server)!;
-    const instrumentation = getInstrumentation(server)!;
-
-    // Test tracker methods
-    const metrics = tracker.getCurrentMetrics();
-    if (typeof metrics.totalRequests !== 'number') {
-      throw new Error('Expected metrics to have totalRequests');
-    }
-
-    // Test instrumentation methods
-    const telemetryEvents = instrumentation.getTelemetryEvents();
-    if (!Array.isArray(telemetryEvents)) {
-      throw new Error('Expected telemetry events to be an array');
-    }
-
-    console.log('   ✓ Tracker methods accessible');
-    console.log('   ✓ Instrumentation methods accessible');
-    console.log(`   ✓ Metrics: ${metrics.totalRequests} requests, ${metrics.activeSessions} active sessions`);
-  }
-
-  async testMetricsCollection() {
-    console.log('\n4. Testing metrics collection through wrapped server...');
-
-    const server = new Server(
-      {
-        name: 'test-server',
-        version: '1.0.0'
-      },
-      {
-        capabilities: {
-          tools: {}
+    it('should process tool arguments with context extraction', () => {
+      const server = new Server(
+        {
+          name: 'context-processing-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
         }
-      }
-    );
+      );
 
-    trackmcp(server, {
-      serviceName: 'test-metrics-server',
-      metricsEnabled: true,
-      tracingEnabled: true
+      trackmcp(server, {
+        projectId: 'proj_context_processing',
+        contextInjection: { enabled: true }
+      });
+
+      const contextInjector = getContextInjector(server)!;
+
+      const toolName = 'search';
+      const toolArgs = {
+        query: 'MCP servers',
+        limit: 10,
+        context: 'The user asked about MCP server implementations'
+      };
+
+      const { context: aiContext, cleanedArgs } = contextInjector.processToolArguments(toolName, toolArgs);
+
+      expect(aiContext).toBe(toolArgs.context);
+      expect(cleanedArgs.context).toBeUndefined();
+      expect(cleanedArgs.query).toBe('MCP servers');
+      expect(cleanedArgs.limit).toBe(10);
+    });
+  });
+
+  describe('Metrics Collection', () => {
+    it('should collect metrics from operations', async () => {
+      const server = new Server(
+        {
+          name: 'test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
+        }
+      );
+
+      trackmcp(server, {
+        serviceName: 'test-metrics-server',
+        metricsEnabled: true,
+        tracingEnabled: true,
+        projectId: 'proj_metrics_test'
+      });
+
+      const tracker = getTracker(server)!;
+
+      // Simulate operations
+      const context1 = tracker.createOperationContext('tools/list', 'req-1');
+      tracker.startMCPSpan('tools/list', context1);
+      tracker.endMCPSpan(context1.operationId, {
+        success: true,
+        data: { tools: [] },
+        duration: 100,
+        timestamp: Date.now()
+      });
+
+      const context2 = tracker.createOperationContext('tools/call', 'req-2');
+      tracker.startMCPSpan('tools/call', context2);
+      tracker.endMCPSpan(context2.operationId, {
+        success: true,
+        data: { result: 'success' },
+        duration: 150,
+        timestamp: Date.now()
+      });
+
+      const metrics = tracker.getCurrentMetrics();
+
+      expect(metrics.totalRequests).toBe(2);
+      expect(metrics.successfulRequests).toBe(2);
+      expect(metrics.failedRequests).toBe(0);
+      expect(metrics.averageDuration).toBe(125);
+
+      await tracker.shutdown();
     });
 
-    const tracker = getTracker(server)!;
+    it('should include projectId in all telemetry events', async () => {
+      const server = new Server(
+        {
+          name: 'project-id-test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
+        }
+      );
 
-    // Simulate some operations directly through tracker
-    const context1 = tracker.createOperationContext('tools/list', 'req-1');
-    tracker.startMCPSpan('tools/list', context1);
-    tracker.endMCPSpan(context1.operationId, {
-      success: true,
-      data: { tools: [] },
-      duration: 100,
-      timestamp: Date.now()
+      const projectId = 'proj_telemetry_test';
+      trackmcp(server, {
+        projectId,
+        serviceName: 'telemetry-test'
+      });
+
+      const tracker = getTracker(server)!;
+
+      // Simulate an operation
+      const context = tracker.createOperationContext('tools/list', 'req-telemetry');
+      tracker.startMCPSpan('tools/list', context);
+      tracker.endMCPSpan(context.operationId, {
+        success: true,
+        data: { tools: [] },
+        duration: 50,
+        timestamp: Date.now()
+      });
+
+      const events = tracker.getTelemetryEvents();
+      const requestStart = events.find(e => e.type === 'request_start');
+      const requestEnd = events.find(e => e.type === 'request_end');
+
+      expect(requestStart).toBeDefined();
+      expect(requestEnd).toBeDefined();
+      expect(requestStart!.data.projectId).toBe(projectId);
+      expect(requestEnd!.data.projectId).toBe(projectId);
+
+      await tracker.shutdown();
     });
+  });
 
-    const context2 = tracker.createOperationContext('tools/call', 'req-2');
-    tracker.startMCPSpan('tools/call', context2);
-    tracker.endMCPSpan(context2.operationId, {
-      success: true,
-      data: { result: 'success' },
-      duration: 150,
-      timestamp: Date.now()
+  describe('Error Handling', () => {
+    it('should track errors in operations', async () => {
+      const server = new Server(
+        {
+          name: 'error-test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
+        }
+      );
+
+      trackmcp(server, {
+        projectId: 'proj_error_test',
+        serviceName: 'error-test'
+      });
+
+      const tracker = getTracker(server)!;
+
+      // Simulate failed operation
+      const context = tracker.createOperationContext('tools/call', 'req-error');
+      tracker.startMCPSpan('tools/call', context);
+      tracker.endMCPSpan(context.operationId, {
+        success: false,
+        error: {
+          code: 'TOOL_ERROR',
+          message: 'Tool execution failed',
+          details: { tool: 'failing-tool' }
+        },
+        duration: 75,
+        timestamp: Date.now()
+      });
+
+      const metrics = tracker.getCurrentMetrics();
+
+      expect(metrics.totalRequests).toBe(1);
+      expect(metrics.successfulRequests).toBe(0);
+      expect(metrics.failedRequests).toBe(1);
+
+      const events = tracker.getTelemetryEvents();
+      const errorEvent = events.find(e => e.type === 'request_end' && !e.data.success);
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent!.data.error).toBeDefined();
+      expect(errorEvent!.data.error.code).toBe('TOOL_ERROR');
+
+      await tracker.shutdown();
     });
+  });
 
-    const metrics = tracker.getCurrentMetrics();
+  describe('Configuration Integration', () => {
+    it('should apply configuration to server instrumentation', () => {
+      const server = new Server(
+        {
+          name: 'config-test-server',
+          version: '1.0.0'
+        },
+        {
+          capabilities: {
+            tools: {}
+          }
+        }
+      );
 
-    if (metrics.totalRequests !== 2) {
-      throw new Error(`Expected 2 total requests, got ${metrics.totalRequests}`);
-    }
+      const config = {
+        projectId: 'proj_config_test',
+        serviceName: 'config-test-service',
+        serviceVersion: '2.0.0',
+        samplingRate: 0.8,
+        contextInjection: {
+          enabled: true,
+          description: 'Custom description'
+        }
+      };
 
-    if (metrics.successfulRequests !== 2) {
-      throw new Error(`Expected 2 successful requests, got ${metrics.successfulRequests}`);
-    }
+      trackmcp(server, config);
 
-    if (metrics.averageDuration !== 125) {
-      throw new Error(`Expected average duration of 125ms, got ${metrics.averageDuration}ms`);
-    }
+      const tracker = getTracker(server)!;
+      const contextInjector = getContextInjector(server)!;
 
-    console.log('   ✓ Metrics correctly collected');
-    console.log(`   ✓ Total requests: ${metrics.totalRequests}`);
-    console.log(`   ✓ Success rate: ${(metrics.successfulRequests / metrics.totalRequests * 100).toFixed(1)}%`);
-    console.log(`   ✓ Average duration: ${metrics.averageDuration.toFixed(2)}ms`);
+      // Verify configuration was applied
+      const trackerConfig = tracker.getConfig();
+      expect(trackerConfig.projectId).toBe(config.projectId);
+      expect(trackerConfig.serviceName).toBe(config.serviceName);
+      expect(trackerConfig.samplingRate).toBe(config.samplingRate);
 
-    // Cleanup
-    await tracker.shutdown();
-  }
-}
-
-// Export and auto-run
-const tests = new ServerWrappingTests();
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  tests.run().catch(console.error);
-}
-
-export { tests as serverWrappingTests };
+      const injectorConfig = contextInjector.getConfig();
+      expect(injectorConfig.enabled).toBe(true);
+      expect(injectorConfig.description).toBe('Custom description');
+    });
+  });
+});

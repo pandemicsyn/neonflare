@@ -147,7 +147,8 @@ export class MCPTracker {
         operationId,
         success: result.success,
         duration: result.duration,
-        error: result.error
+        error: result.error,
+        projectId: this.config.projectId
       },
       spanContext: {
         traceId: span.spanContext().traceId,
