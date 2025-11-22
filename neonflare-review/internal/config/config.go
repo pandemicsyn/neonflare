@@ -77,13 +77,13 @@ func Load(configFile string) (*Config, error) {
 func setDefaults(v *viper.Viper) {
 	// Codex defaults
 	v.SetDefault("agents.codex.enabled", true)
-	v.SetDefault("agents.codex.model", "gpt-4")
+	v.SetDefault("agents.codex.model", "gpt-5.1-codex-mini")
 	v.SetDefault("agents.codex.timeout", 300*time.Second)
 	v.SetDefault("agents.codex.cli_path", "codex")
 
 	// Claude defaults
 	v.SetDefault("agents.claude.enabled", true)
-	v.SetDefault("agents.claude.model", "claude-sonnet-4")
+	v.SetDefault("agents.claude.model", "sonnet")
 	v.SetDefault("agents.claude.timeout", 300*time.Second)
 	v.SetDefault("agents.claude.cli_path", "claude")
 

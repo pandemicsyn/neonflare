@@ -4,13 +4,13 @@
 agents:
   codex:
     enabled: true
-    model: "gpt-4"
+    model: "gpt-5.1-codex-mini"
     timeout: 300s  # 5 minutes
     cli_path: "codex"  # or full path like /usr/local/bin/codex
 
   claude:
     enabled: true
-    model: "claude-sonnet-4"
+    model: "sonnet"
     timeout: 300s
     cli_path: "claude"
 
