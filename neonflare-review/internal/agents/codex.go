@@ -19,18 +19,20 @@ func NewCodexAgent(cfg Config) *CodexAgent {
 
 // Execute runs Codex with the given prompt and input
 func (a *CodexAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
-	// Build the full prompt
-	fullPrompt := fmt.Sprintf("%s\n\n%s", prompt, input)
+	// Build the full prompt with code to review
+	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
-	// TODO: Determine the correct CLI args for codex
-	// For now, we'll use a placeholder that assumes a --auto flag
+	// Use codex exec for non-interactive execution
+	// Format: codex exec -m <model> <prompt>
 	args := []string{
-		"--auto",
-		fmt.Sprintf("--model=%s", a.config.Model),
+		"exec",
+		"-m", a.config.Model,
+		"--dangerously-bypass-approvals-and-sandbox", // For autonomous execution
+		fullPrompt,
 	}
 
-	// Execute the command with the prompt as stdin
-	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
+	// Execute the command
+	output, err := a.ExecuteCommand(ctx, args, "")
 	if err != nil {
 		return "", fmt.Errorf("codex execution failed: %w", err)
 	}

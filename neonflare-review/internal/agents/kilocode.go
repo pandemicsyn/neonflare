@@ -19,18 +19,20 @@ func NewKilocodeAgent(cfg Config) *KilocodeAgent {
 
 // Execute runs Kilocode with the given prompt and input
 func (a *KilocodeAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
-	// Build the full prompt
-	fullPrompt := fmt.Sprintf("%s\n\n%s", prompt, input)
+	// Build the full prompt with code to review
+	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
-	// TODO: Determine the correct CLI args for kilocode
-	// The user mentioned: kilocode --auto "review this code"
+	// Use kilocode --auto for non-interactive execution
+	// Format: kilocode --auto --mode <mode> --json <prompt>
 	args := []string{
 		"--auto",
-		fullPrompt, // Kilocode takes the prompt as an argument
+		"--mode", "code", // Use code mode for code review
+		"--json", // Get JSON output for easier parsing
+		fullPrompt,
 	}
 
-	// For kilocode, we might pass the code via stdin
-	output, err := a.ExecuteCommand(ctx, args, input)
+	// Execute the command
+	output, err := a.ExecuteCommand(ctx, args, "")
 	if err != nil {
 		return "", fmt.Errorf("kilocode execution failed: %w", err)
 	}

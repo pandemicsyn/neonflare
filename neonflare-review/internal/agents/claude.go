@@ -19,18 +19,21 @@ func NewClaudeAgent(cfg Config) *ClaudeAgent {
 
 // Execute runs Claude with the given prompt and input
 func (a *ClaudeAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
-	// Build the full prompt
-	fullPrompt := fmt.Sprintf("%s\n\n%s", prompt, input)
+	// Build the full prompt with code to review
+	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
-	// TODO: Determine the correct CLI args for claude
-	// For now, we'll use a placeholder that assumes a --auto flag
+	// Use claude --print for non-interactive execution
+	// Format: claude --print --model <model> <prompt>
 	args := []string{
-		"--auto",
-		fmt.Sprintf("--model=%s", a.config.Model),
+		"--print",
+		"--model", a.config.Model,
+		"--output-format", "text",
+		"--dangerously-skip-permissions", // For autonomous execution
+		fullPrompt,
 	}
 
-	// Execute the command with the prompt as stdin
-	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
+	// Execute the command
+	output, err := a.ExecuteCommand(ctx, args, "")
 	if err != nil {
 		return "", fmt.Errorf("claude execution failed: %w", err)
 	}
