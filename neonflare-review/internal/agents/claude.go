@@ -19,21 +19,27 @@ func NewClaudeAgent(cfg Config) *ClaudeAgent {
 
 // Execute runs Claude with the given prompt and input
 func (a *ClaudeAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
-	// Build the full prompt with code to review
-	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
+	// If input is provided (legacy mode), append it to prompt
+	// Otherwise, assume prompt contains file-based instructions
+	var fullPrompt string
+	if input != "" {
+		fullPrompt = fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
-	// Check if prompt is too large (Claude has ~200K token limit, ~800KB text limit)
-	// Warn if approaching limits
-	if len(fullPrompt) > 500000 { // 500KB
-		return "", fmt.Errorf("prompt too large (%d bytes). Try reviewing smaller changesets using --staged or --commit flags", len(fullPrompt))
+		// Check if prompt is too large
+		if len(fullPrompt) > 500000 { // 500KB
+			return "", fmt.Errorf("prompt too large (%d bytes). Try reviewing smaller changesets using --staged or --commit flags", len(fullPrompt))
+		}
+	} else {
+		fullPrompt = prompt
 	}
 
 	// Use claude --print for non-interactive execution
-	// Pass prompt via stdin to avoid command-line length limits
+	// Enable tools so Claude can read files and run git commands
 	args := []string{
 		"--print",
 		"--model", a.config.Model,
 		"--output-format", "text",
+		"--tools", "Bash,Read,Glob,Grep", // Enable file and git tools
 		"--dangerously-skip-permissions", // For autonomous execution
 	}
 

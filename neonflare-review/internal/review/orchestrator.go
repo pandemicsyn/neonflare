@@ -78,10 +78,13 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		return nil, fmt.Errorf("one or more selected agents not registered")
 	}
 
-	// Build reviewer prompts
-	reviewerPrompt, err := BuildReviewerPrompt(
+	// Build reviewer prompts using file-based approach
+	// Instead of embedding code in prompt, use file-based instructions
+	reviewSource := "the code in the current directory"
+	reviewerPrompt, err := BuildReviewerPromptWithPath(
 		o.cfg.Prompts.ReviewerTemplate,
-		code,
+		"", // Let agents discover files via git commands
+		reviewSource,
 		userPrompt,
 	)
 	if err != nil {
@@ -89,6 +92,7 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 	}
 
 	// Run two reviewers in parallel
+	// Pass empty string for code - agents will use tools to read files
 	var wg sync.WaitGroup
 	var review1, review2 *agents.Review
 
@@ -100,7 +104,7 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 1, AgentName: reviewer1Name})
 		}
-		review1 = o.executeReview(ctx, reviewer1, reviewerPrompt, code)
+		review1 = o.executeReview(ctx, reviewer1, reviewerPrompt, "") // Empty code - use tools
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 1, AgentName: reviewer1Name, Review: review1})
 		}
@@ -112,7 +116,7 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 2, AgentName: reviewer2Name})
 		}
-		review2 = o.executeReview(ctx, reviewer2, reviewerPrompt, code)
+		review2 = o.executeReview(ctx, reviewer2, reviewerPrompt, "") // Empty code - use tools
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 2, AgentName: reviewer2Name, Review: review2})
 		}

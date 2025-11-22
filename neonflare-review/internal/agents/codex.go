@@ -19,8 +19,14 @@ func NewCodexAgent(cfg Config) *CodexAgent {
 
 // Execute runs Codex with the given prompt and input
 func (a *CodexAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
-	// Build the full prompt with code to review
-	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
+	// If input is provided (legacy mode), append it to prompt
+	// Otherwise, assume prompt contains file-based instructions
+	var fullPrompt string
+	if input != "" {
+		fullPrompt = fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
+	} else {
+		fullPrompt = prompt
+	}
 
 	// Use codex exec for non-interactive execution
 	// Pass prompt via stdin to avoid command-line length limits
