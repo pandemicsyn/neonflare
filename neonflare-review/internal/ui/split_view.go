@@ -111,9 +111,9 @@ func (m Model) renderSplitView() string {
 	)
 
 	// Footer - change message when both reviews are done
-	footerText := "Tab: switch panel | ↑/↓: scroll | PgUp/PgDn: page | q: quit"
+	footerText := "Tab: switch panel | ↑/↓: scroll | g: top | G: bottom | q: quit"
 	if m.review1Done && m.review2Done {
-		footerText = "✓ Reviews complete! Tab: switch panel | ↑/↓: scroll | q: exit and save"
+		footerText = "✓ Reviews complete! Tab: switch | g: top | G: bottom | q: exit and save"
 	}
 	footer := "\n" + lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).

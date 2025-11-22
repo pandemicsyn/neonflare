@@ -186,6 +186,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 
+		case "g":
+			// Jump to top (vim-style)
+			if m.focusedPanel == 0 {
+				m.review1Viewport.GotoTop()
+			} else {
+				m.review2Viewport.GotoTop()
+			}
+			return m, nil
+
+		case "G":
+			// Jump to bottom (vim-style)
+			if m.focusedPanel == 0 {
+				m.review1Viewport.GotoBottom()
+			} else {
+				m.review2Viewport.GotoBottom()
+			}
+			return m, nil
+
 		case "pgup", "pgdown", "home", "end":
 			// Page up/down, home/end in focused panel
 			if m.focusedPanel == 0 {
