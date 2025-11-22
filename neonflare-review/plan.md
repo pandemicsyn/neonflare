@@ -267,15 +267,20 @@ Each file includes:
 - [x] Prompt builder with user instructions
 - [x] Complete CLI integration
 
-### Phase 4: UI (Bubbletea) ✅ COMPLETED
+### Phase 4: UI (Bubbletea) ✅ MOSTLY COMPLETED
 - [x] Basic model setup (Bubbletea model with state management)
 - [x] Split view component (parallel reviews side-by-side)
 - [x] Single view component (aggregate review)
 - [x] Markdown rendering (Glamour integration)
 - [x] One-shot mode with `--auto` flag
-- [ ] Interactive mode (agent selection, progress, final view)
+- [ ] Fully interactive mode (see Phase 7 below)
 
-**Note:** `--auto` mode now displays beautiful split-screen UI showing parallel reviews in real-time, then switches to single view for the aggregate. Interactive mode (without `--auto`) still uses console output.
+**Current State:**
+- `--auto` mode displays beautiful split-screen UI showing parallel reviews in real-time, then switches to single view for the aggregate
+- Console mode (without `--auto`) uses simple text output
+- All CLI arguments must be specified upfront
+
+**Interactive Mode (Future):** See Phase 7 for detailed design of menu-driven TUI experience.
 
 ### Phase 5: Output & Polish ✅ MOSTLY COMPLETED
 - [x] File writer (saves 3 markdown files)
@@ -334,7 +339,51 @@ neonflare-review /path/to/repo
 neonflare-review --model-claude=claude-opus-4 /path/to/repo
 ```
 
-## Future Enhancements
+## Phase 7: Interactive Mode (Future Enhancement)
+
+A fully interactive TUI experience with menu-driven navigation (like lazygit, k9s).
+
+### Components to Build
+- `internal/ui/menu.go` - Menu navigation component
+- `internal/ui/agent_picker.go` - Agent selection screen with checkboxes
+- `internal/ui/config_editor.go` - Configuration screen (models, prompts)
+- `internal/ui/confirm.go` - Review confirmation screen
+- `internal/ui/post_review.go` - Post-review action menu
+- `internal/ui/interactive.go` - Main interactive flow orchestrator
+
+### User Flow
+1. **Welcome Screen** - Choose what to review (repo, staged, commit, stdin)
+2. **Agent Selection** - Pick 3 agents or use random assignment
+3. **Configuration** - Override models, add custom prompts, set output dir
+4. **Confirmation** - Preview settings before starting
+5. **Review Progress** - Same split-screen/single view as `--auto` mode
+6. **Post-Review Menu** - View reviews, copy to clipboard, start new review
+
+### Features
+- **Keyboard Navigation**: ↑↓ arrows, Enter to select, Space to toggle, `b` for back, `q` to quit
+- **Smart Defaults**: Auto-detect git repo, pre-select available agents, remember last config
+- **Input Validation**: Catch errors before starting review
+- **Visual Feedback**: Show agent availability, loading states, helpful hints
+- **Accessibility**: Help menu with `?`, clear status indicators
+
+### Launch Methods
+```bash
+# Launch interactive mode
+./neonflare-review --interactive
+
+# Or make it default when no args provided
+./neonflare-review
+```
+
+### Benefits
+- Discoverability: Users can explore without reading docs
+- Flexibility: Easy to change settings between reviews
+- Professional UX: Polished experience like modern TUI tools
+- Lower barrier to entry: No need to memorize CLI flags
+
+---
+
+## Future Enhancements (Beyond Phase 7)
 - [ ] Web UI for viewing saved reviews
 - [ ] Git integration (comment on PRs)
 - [ ] Custom agent plugins
@@ -342,3 +391,6 @@ neonflare-review --model-claude=claude-opus-4 /path/to/repo
 - [ ] CI/CD integration
 - [ ] Agent performance metrics
 - [ ] Parallel batch reviews (multiple files)
+- [ ] Review templates and presets
+- [ ] Diff highlighting in reviews
+- [ ] Agent performance analytics
