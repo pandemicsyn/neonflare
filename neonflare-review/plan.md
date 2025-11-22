@@ -267,15 +267,15 @@ Each file includes:
 - [x] Prompt builder with user instructions
 - [x] Complete CLI integration
 
-### Phase 4: UI (Bubbletea) 🚧 IN PROGRESS
-- [ ] Basic model setup
-- [ ] Split view component
-- [ ] Single view component
-- [ ] Markdown rendering (glamour integration)
-- [ ] One-shot mode
-- [ ] Interactive mode
+### Phase 4: UI (Bubbletea) ✅ COMPLETED
+- [x] Basic model setup (Bubbletea model with state management)
+- [x] Split view component (parallel reviews side-by-side)
+- [x] Single view component (aggregate review)
+- [x] Markdown rendering (Glamour integration)
+- [x] One-shot mode with `--auto` flag
+- [ ] Interactive mode (agent selection, progress, final view)
 
-**Note:** Currently using simple console output. Bubbletea UI will be added in next iteration.
+**Note:** `--auto` mode now displays beautiful split-screen UI showing parallel reviews in real-time, then switches to single view for the aggregate. Interactive mode (without `--auto`) still uses console output.
 
 ### Phase 5: Output & Polish ✅ MOSTLY COMPLETED
 - [x] File writer (saves 3 markdown files)
@@ -295,12 +295,12 @@ Each file includes:
 
 ```go
 require (
-    github.com/spf13/cobra          // CLI framework
-    github.com/spf13/viper          // Config management
-    github.com/charmbracelet/bubbletea  // TUI framework
-    github.com/charmbracelet/lipgloss   // TUI styling
-    github.com/charmbracelet/glamour    // Markdown rendering
-    gopkg.in/yaml.v3                // YAML parsing
+    github.com/spf13/cobra              // CLI framework
+    github.com/spf13/viper              // Config management
+    github.com/charmbracelet/bubbletea  // TUI framework (✅ installed)
+    github.com/charmbracelet/lipgloss   // TUI styling (✅ installed)
+    github.com/charmbracelet/glamour    // Markdown rendering (✅ installed)
+    gopkg.in/yaml.v3                    // YAML parsing
 )
 ```
 

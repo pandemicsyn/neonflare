@@ -18,8 +18,9 @@ Multi-agent code review tool that orchestrates AI agents (codex, Claude, kilocod
 - ✅ Markdown output writer with metadata
 - ✅ Comprehensive test suite (79.4% coverage)
 
-### In Progress
-- 🔨 Bubbletea UI (Phase 4) - currently using console output
+### Recently Added
+- ✨ **Bubbletea UI with `--auto` mode** - Beautiful split-screen interface!
+- 🎨 **Markdown rendering** with Glamour for final reviews
 
 ### Requirements
 
@@ -63,6 +64,12 @@ git diff | ./bin/neonflare-review --stdin
 
 # Add custom prompt instructions
 ./bin/neonflare-review --prompt="Focus on security issues" /path/to/repo
+
+# Use the split-screen UI (--auto mode)
+./bin/neonflare-review --auto /path/to/repo
+
+# Combine --auto with other options
+./bin/neonflare-review --auto --agents=codex,claude,kilocode --staged /path/to/repo
 ```
 
 ## Configuration

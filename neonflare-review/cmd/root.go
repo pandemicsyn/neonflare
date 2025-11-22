@@ -10,6 +10,7 @@ import (
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/input"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -137,24 +138,39 @@ func runReview(cmd *cobra.Command, args []string) error {
 		fmt.Println("Randomly selecting agents...")
 	}
 
-	// Run the review
-	fmt.Println("Starting review process...")
+	// Run the review with or without UI
+	var result *review.Result
 	ctx := context.Background()
-	result, err := orch.RunReview(ctx, code, userPrompt, specifiedAgents)
-	if err != nil {
-		return fmt.Errorf("review failed: %w", err)
-	}
 
-	// Display summary
-	fmt.Println(output.FormatResults(
-		result.Reviewer1,
-		result.Reviewer2,
-		result.Aggregator,
-		result.Review1,
-		result.Review2,
-		result.AggregateReview,
-		result.TotalDuration.String(),
-	))
+	if autoMode {
+		// Use Bubbletea UI for auto mode
+		fmt.Println("Starting review with interactive UI...")
+		fmt.Println() // Clear line before UI starts
+
+		result, err = ui.RunWithUI(ctx, orch, code, userPrompt, specifiedAgents, cfg, metadata)
+		if err != nil {
+			return fmt.Errorf("review failed: %w", err)
+		}
+	} else {
+		// Use console output for non-auto mode
+		fmt.Println("Starting review process...")
+
+		result, err = orch.RunReview(ctx, code, userPrompt, specifiedAgents)
+		if err != nil {
+			return fmt.Errorf("review failed: %w", err)
+		}
+
+		// Display summary for console mode
+		fmt.Println(output.FormatResults(
+			result.Reviewer1,
+			result.Reviewer2,
+			result.Aggregator,
+			result.Review1,
+			result.Review2,
+			result.AggregateReview,
+			result.TotalDuration.String(),
+		))
+	}
 
 	// Save reviews to files
 	writer := output.NewWriter(cfg.Output.Dir, cfg.Output.Timestamp)
