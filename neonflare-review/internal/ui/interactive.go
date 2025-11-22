@@ -240,6 +240,8 @@ func RunInteractive(ctx context.Context, cfg *config.Config, orch *review.Orches
 
 	// If user confirmed to start review, run it now
 	if im.startReview {
+		fmt.Println("\n🚀 Starting review with split-screen UI...\n")
+
 		// Run the review with the split-screen UI
 		result, err := RunWithUI(ctx, orch, code, userPrompt, im.selectedAgents, cfg, metadata)
 		if err != nil {
