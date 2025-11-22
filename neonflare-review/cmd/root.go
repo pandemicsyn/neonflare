@@ -33,6 +33,7 @@ var rootCmd = &cobra.Command{
 to perform collaborative code reviews. Two randomly selected agents perform
 initial reviews, and a third agent aggregates and vets the results.`,
 	Version: "0.1.0",
+	Args:    cobra.MaximumNArgs(1), // Accept 0 or 1 positional argument (the path)
 	RunE:    runReview,
 }
 
@@ -230,11 +231,10 @@ func getInputCode(cmd *cobra.Command, args []string) (string, map[string]string,
 	}
 
 	// Read from git repository
-	if len(args) == 0 {
-		return "", nil, fmt.Errorf("repository path required (or use --stdin)")
+	repoPath := "."
+	if len(args) > 0 {
+		repoPath = args[0]
 	}
-
-	repoPath := args[0]
 	staged, _ := cmd.Flags().GetBool("staged")
 	commit, _ := cmd.Flags().GetString("commit")
 
