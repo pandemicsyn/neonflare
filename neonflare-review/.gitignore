@@ -1,5 +1,6 @@
 # Binaries
 neonflare-review
+bin/
 *.exe
 *.dll
 *.so
@@ -8,6 +9,10 @@ neonflare-review
 # Test binaries
 *.test
 *.out
+
+# Coverage
+coverage.out
+coverage.html
 
 # Go workspace file
 go.work

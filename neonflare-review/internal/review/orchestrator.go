@@ -31,13 +31,13 @@ func (o *Orchestrator) RegisterAgent(agent agents.Agent) {
 
 // Result contains the complete review results
 type Result struct {
-	Reviewer1      string
-	Reviewer2      string
-	Aggregator     string
-	Review1        *agents.Review
-	Review2        *agents.Review
+	Reviewer1       string
+	Reviewer2       string
+	Aggregator      string
+	Review1         *agents.Review
+	Review2         *agents.Review
 	AggregateReview *agents.Review
-	TotalDuration  time.Duration
+	TotalDuration   time.Duration
 }
 
 // RunReview orchestrates the complete review process

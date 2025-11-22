@@ -252,19 +252,22 @@ Each file includes:
 - [x] Example config and prompts
 - [x] README and documentation
 
-### Phase 2: Agent Implementations
-- [ ] Codex CLI wrapper
-- [ ] Claude CLI wrapper
-- [ ] Kilocode CLI wrapper
-- [ ] Executor with timeout/error handling
+### Phase 2: Agent Implementations ✅ COMPLETED
+- [x] Codex CLI wrapper (stub implementation)
+- [x] Claude CLI wrapper (stub implementation)
+- [x] Kilocode CLI wrapper (stub implementation)
+- [x] Executor with timeout/error handling
+- [x] Tests for config and selector
+- [x] Makefile for build/test automation
 
-### Phase 3: Input & Prompts
-- [ ] Git repo input handler
-- [ ] Stdin input handler
-- [ ] Prompt templates
-- [ ] Prompt builder with user instructions
+### Phase 3: Input & Prompts ✅ COMPLETED
+- [x] Git repo input handler (diff, staged, commit options)
+- [x] Stdin input handler
+- [x] Prompt templates (embedded defaults + file support)
+- [x] Prompt builder with user instructions
+- [x] Complete CLI integration
 
-### Phase 4: UI (Bubbletea)
+### Phase 4: UI (Bubbletea) 🚧 IN PROGRESS
 - [ ] Basic model setup
 - [ ] Split view component
 - [ ] Single view component
@@ -272,12 +275,15 @@ Each file includes:
 - [ ] One-shot mode
 - [ ] Interactive mode
 
-### Phase 5: Output & Polish
-- [ ] File writer
-- [ ] Output formatting
-- [ ] Error handling improvements
+**Note:** Currently using simple console output. Bubbletea UI will be added in next iteration.
+
+### Phase 5: Output & Polish ✅ MOSTLY COMPLETED
+- [x] File writer (saves 3 markdown files)
+- [x] Output formatting
+- [x] Error handling
+- [x] Tests (config, selector)
+- [ ] More comprehensive tests (agents, input, output)
 - [ ] Logging
-- [ ] Tests
 
 ### Phase 6: Documentation & Examples
 - [ ] README with usage examples
