@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -17,13 +16,30 @@ func (m Model) renderSplitView() string {
 	halfWidth := (m.width - 4) / 2 // -4 for borders and padding
 	contentHeight := m.height - 8  // Leave room for title and status
 
-	// Create styles for left and right panels
-	panelStyle := lipgloss.NewStyle().
+	// Create styles for left and right panels with focus indicators
+	focusedBorderColor := lipgloss.Color("#FF79C6") // Pink for focused
+	unfocusedBorderColor := lipgloss.Color("#874BFD") // Purple for unfocused
+
+	leftPanelStyle := lipgloss.NewStyle().
 		Width(halfWidth).
 		Height(contentHeight).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#874BFD")).
+		BorderForeground(unfocusedBorderColor).
 		Padding(1)
+
+	rightPanelStyle := lipgloss.NewStyle().
+		Width(halfWidth).
+		Height(contentHeight).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(unfocusedBorderColor).
+		Padding(1)
+
+	// Highlight focused panel
+	if m.focusedPanel == 0 {
+		leftPanelStyle = leftPanelStyle.BorderForeground(focusedBorderColor)
+	} else {
+		rightPanelStyle = rightPanelStyle.BorderForeground(focusedBorderColor)
+	}
 
 	// Build header
 	header := titleStyle.Render(fmt.Sprintf(" 🔍 Neonflare Review - Parallel Reviews "))
@@ -45,19 +61,18 @@ func (m Model) renderSplitView() string {
 			Render(fmt.Sprintf(" (%ds)", m.review1Progress))
 	}
 
-	leftContent := m.review1Content
-	if leftContent == "" {
-		leftContent = "Waiting for review to start..."
+	// Use viewport for scrollable content
+	leftViewport := m.review1Viewport.View()
+
+	// Add scroll position indicator
+	scrollIndicator := ""
+	if m.review1Viewport.ScrollPercent() < 1.0 {
+		scrollIndicator = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#8BE9FD")).
+			Render(fmt.Sprintf(" [%.0f%%]", m.review1Viewport.ScrollPercent()*100))
 	}
 
-	// Truncate content to fit panel
-	leftLines := strings.Split(leftContent, "\n")
-	if len(leftLines) > contentHeight-3 {
-		leftLines = leftLines[len(leftLines)-(contentHeight-3):]
-		leftContent = strings.Join(leftLines, "\n")
-	}
-
-	leftPanel := fmt.Sprintf("%s\n%s%s\n\n%s", leftTitle, leftStatus, progressText, leftContent)
+	leftPanel := fmt.Sprintf("%s\n%s%s%s\n\n%s", leftTitle, leftStatus, progressText, scrollIndicator, leftViewport)
 
 	// Right panel - Reviewer 2
 	rightTitle := lipgloss.NewStyle().
@@ -75,31 +90,30 @@ func (m Model) renderSplitView() string {
 			Render(fmt.Sprintf(" (%ds)", m.review2Progress))
 	}
 
-	rightContent := m.review2Content
-	if rightContent == "" {
-		rightContent = "Waiting for review to start..."
+	// Use viewport for scrollable content
+	rightViewport := m.review2Viewport.View()
+
+	// Add scroll position indicator
+	scrollIndicator2 := ""
+	if m.review2Viewport.ScrollPercent() < 1.0 {
+		scrollIndicator2 = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#8BE9FD")).
+			Render(fmt.Sprintf(" [%.0f%%]", m.review2Viewport.ScrollPercent()*100))
 	}
 
-	// Truncate content to fit panel
-	rightLines := strings.Split(rightContent, "\n")
-	if len(rightLines) > contentHeight-3 {
-		rightLines = rightLines[len(rightLines)-(contentHeight-3):]
-		rightContent = strings.Join(rightLines, "\n")
-	}
-
-	rightPanel := fmt.Sprintf("%s\n%s%s\n\n%s", rightTitle, rightStatus, progressText2, rightContent)
+	rightPanel := fmt.Sprintf("%s\n%s%s%s\n\n%s", rightTitle, rightStatus, progressText2, scrollIndicator2, rightViewport)
 
 	// Combine panels side by side
 	panels := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		panelStyle.Render(leftPanel),
-		panelStyle.Render(rightPanel),
+		leftPanelStyle.Render(leftPanel),
+		rightPanelStyle.Render(rightPanel),
 	)
 
 	// Footer - change message when both reviews are done
-	footerText := "Press Ctrl+C or 'q' to quit"
+	footerText := "Tab: switch panel | ↑/↓: scroll | PgUp/PgDn: page | q: quit"
 	if m.review1Done && m.review2Done {
-		footerText = "✓ Reviews complete! Press 'q' to exit and save results"
+		footerText = "✓ Reviews complete! Tab: switch panel | ↑/↓: scroll | q: exit and save"
 	}
 	footer := "\n" + lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).

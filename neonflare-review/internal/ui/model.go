@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/agents"
@@ -36,6 +37,11 @@ type Model struct {
 	review1Progress  int // Seconds elapsed
 	review2Progress  int // Seconds elapsed
 
+	// Viewports for scrolling
+	review1Viewport viewport.Model
+	review2Viewport viewport.Model
+	focusedPanel    int // 0 = left (review1), 1 = right (review2)
+
 	// Results
 	review1Result *agents.Review
 	review2Result *agents.Review
@@ -62,11 +68,21 @@ type TickMsg time.Time
 
 // NewModel creates a new UI model
 func NewModel(reviewer1, reviewer2, _ string, metadata map[string]string) Model {
+	// Create viewports for scrolling (dimensions will be set on WindowSizeMsg)
+	vp1 := viewport.New(80, 20)
+	vp1.SetContent("Waiting for review to start...")
+
+	vp2 := viewport.New(80, 20)
+	vp2.SetContent("Waiting for review to start...")
+
 	return Model{
-		mode:          ViewModeSplit,
-		reviewer1Name: reviewer1,
-		reviewer2Name: reviewer2,
-		metadata:      metadata,
+		mode:            ViewModeSplit,
+		reviewer1Name:   reviewer1,
+		reviewer2Name:   reviewer2,
+		metadata:        metadata,
+		review1Viewport: vp1,
+		review2Viewport: vp2,
+		focusedPanel:    0, // Start with left panel focused
 	}
 }
 
@@ -89,6 +105,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
+
+		// Resize viewports to fit split-screen layout
+		halfWidth := (m.width - 4) / 2     // -4 for borders and padding
+		contentHeight := m.height - 8       // Leave room for title, status, footer
+
+		m.review1Viewport.Width = halfWidth - 4  // -4 for panel padding
+		m.review1Viewport.Height = contentHeight - 3 // -3 for title and status
+
+		m.review2Viewport.Width = halfWidth - 4
+		m.review2Viewport.Height = contentHeight - 3
+
 		return m, nil
 
 	case TickMsg:
@@ -108,11 +135,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ReviewUpdateMsg:
 		if msg.ReviewerNum == 1 {
 			m.review1Content += msg.Content
+			m.review1Viewport.SetContent(m.review1Content)
+			m.review1Viewport.GotoBottom() // Auto-scroll to show new content
 			if msg.Done {
 				m.review1Done = true
 			}
 		} else if msg.ReviewerNum == 2 {
 			m.review2Content += msg.Content
+			m.review2Viewport.SetContent(m.review2Content)
+			m.review2Viewport.GotoBottom() // Auto-scroll to show new content
 			if msg.Done {
 				m.review2Done = true
 			}
@@ -127,9 +158,51 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil // Don't quit - let user press 'q' to exit
 
 	case tea.KeyMsg:
+		var cmd tea.Cmd
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+
+		case "tab":
+			// Switch focus between panels
+			m.focusedPanel = (m.focusedPanel + 1) % 2
+			return m, nil
+
+		case "up", "k":
+			// Scroll up in focused panel
+			if m.focusedPanel == 0 {
+				m.review1Viewport, cmd = m.review1Viewport.Update(msg)
+			} else {
+				m.review2Viewport, cmd = m.review2Viewport.Update(msg)
+			}
+			return m, cmd
+
+		case "down", "j":
+			// Scroll down in focused panel
+			if m.focusedPanel == 0 {
+				m.review1Viewport, cmd = m.review1Viewport.Update(msg)
+			} else {
+				m.review2Viewport, cmd = m.review2Viewport.Update(msg)
+			}
+			return m, cmd
+
+		case "pgup", "pgdown", "home", "end":
+			// Page up/down, home/end in focused panel
+			if m.focusedPanel == 0 {
+				m.review1Viewport, cmd = m.review1Viewport.Update(msg)
+			} else {
+				m.review2Viewport, cmd = m.review2Viewport.Update(msg)
+			}
+			return m, cmd
+
+		case "ctrl+u", "ctrl+d":
+			// Half-page scroll in focused panel
+			if m.focusedPanel == 0 {
+				m.review1Viewport, cmd = m.review1Viewport.Update(msg)
+			} else {
+				m.review2Viewport, cmd = m.review2Viewport.Update(msg)
+			}
+			return m, cmd
 		}
 
 	case error:
