@@ -38,6 +38,13 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 					Content:     fmt.Sprintf("Starting %s review...\n", event.AgentName),
 					Done:        false,
 				})
+			case "reviewer_output":
+				// Stream output as it arrives
+				p.Send(ReviewUpdateMsg{
+					ReviewerNum: event.Reviewer,
+					Content:     event.Content,
+					Done:        false,
+				})
 			case "reviewer_done":
 				if event.Review.Error != nil {
 					p.Send(ReviewUpdateMsg{
@@ -46,9 +53,10 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 						Done:        true,
 					})
 				} else {
+					// Don't send content here - it was already streamed
 					p.Send(ReviewUpdateMsg{
 						ReviewerNum: event.Reviewer,
-						Content:     event.Review.Content,
+						Content:     "",
 						Done:        true,
 					})
 				}

@@ -19,6 +19,11 @@ func NewClaudeAgent(cfg Config) *ClaudeAgent {
 
 // Execute runs Claude with the given prompt and input
 func (a *ClaudeAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
+	return a.ExecuteWithCallback(ctx, prompt, input, nil)
+}
+
+// ExecuteWithCallback runs Claude with streaming output support
+func (a *ClaudeAgent) ExecuteWithCallback(ctx context.Context, prompt string, input string, outputCallback OutputCallback) (string, error) {
 	// If input is provided (legacy mode), append it to prompt
 	// Otherwise, assume prompt contains file-based instructions
 	var fullPrompt string
@@ -44,7 +49,7 @@ func (a *ClaudeAgent) Execute(ctx context.Context, prompt string, input string) 
 	}
 
 	// Execute the command with prompt via stdin
-	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
+	output, err := a.ExecuteCommand(ctx, args, fullPrompt, outputCallback)
 	if err != nil {
 		// Add helpful context for common errors
 		errMsg := err.Error()

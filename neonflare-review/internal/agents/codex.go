@@ -19,6 +19,11 @@ func NewCodexAgent(cfg Config) *CodexAgent {
 
 // Execute runs Codex with the given prompt and input
 func (a *CodexAgent) Execute(ctx context.Context, prompt string, input string) (string, error) {
+	return a.ExecuteWithCallback(ctx, prompt, input, nil)
+}
+
+// ExecuteWithCallback runs Codex with streaming output support
+func (a *CodexAgent) ExecuteWithCallback(ctx context.Context, prompt string, input string, outputCallback OutputCallback) (string, error) {
 	// If input is provided (legacy mode), append it to prompt
 	// Otherwise, assume prompt contains file-based instructions
 	var fullPrompt string
@@ -37,7 +42,7 @@ func (a *CodexAgent) Execute(ctx context.Context, prompt string, input string) (
 	}
 
 	// Execute the command with prompt via stdin
-	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
+	output, err := a.ExecuteCommand(ctx, args, fullPrompt, outputCallback)
 	if err != nil {
 		return "", fmt.Errorf("codex execution failed: %w", err)
 	}

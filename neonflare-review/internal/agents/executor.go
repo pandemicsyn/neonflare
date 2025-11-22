@@ -1,15 +1,20 @@
 package agents
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/logging"
 )
+
+// OutputCallback is called with chunks of output as they arrive
+type OutputCallback func(chunk string)
 
 // BaseAgent provides common functionality for all agents
 type BaseAgent struct {
@@ -35,7 +40,8 @@ func (a *BaseAgent) IsAvailable() bool {
 }
 
 // ExecuteCommand runs a command with timeout and returns stdout
-func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin string) (string, error) {
+// If outputCallback is provided, it will be called with chunks of output as they arrive
+func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin string, outputCallback OutputCallback) (string, error) {
 	// Log the command being executed
 	logging.Command(a.config.Name, a.config.CLIPath, args)
 	if stdin != "" {
@@ -60,34 +66,90 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 		cmd.Stdin = strings.NewReader(stdin)
 	}
 
-	// Capture stdout and stderr
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	// Setup stdout pipe for streaming
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	// Capture stderr
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
-	// Execute
+	// Start command
 	startTime := time.Now()
-	err := cmd.Run()
+	if err := cmd.Start(); err != nil {
+		logging.Error("%s: failed to start command: %v", a.config.Name, err)
+		return "", fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Stream output in real-time
+	var stdout strings.Builder
+	reader := bufio.NewReader(stdoutPipe)
+
+	// Read output line by line
+	done := make(chan error, 1)
+	go func() {
+		for {
+			line, err := reader.ReadString('\n')
+			if len(line) > 0 {
+				stdout.WriteString(line)
+				// Call callback with this chunk of output
+				if outputCallback != nil {
+					outputCallback(line)
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					done <- err
+				} else {
+					done <- nil
+				}
+				return
+			}
+		}
+	}()
+
+	// Wait for either command completion or timeout
+	waitErr := make(chan error, 1)
+	go func() {
+		waitErr <- cmd.Wait()
+	}()
+
+	// Wait for streaming to complete
+	streamErr := <-done
+
+	// Wait for command to complete
+	err = <-waitErr
 	duration := time.Since(startTime)
 
+	// Get final output
+	output := stdout.String()
+
 	// Log the output
-	logging.Output(a.config.Name, stdout.String(), stderr.String())
+	logging.Output(a.config.Name, output, stderr.String())
 	logging.Info("%s: command completed in %v", a.config.Name, duration)
 
 	// Check for timeout
 	if timeoutCtx.Err() == context.DeadlineExceeded {
 		logging.Error("%s: command timed out after %v", a.config.Name, a.config.Timeout)
-		return "", fmt.Errorf("command timed out after %v", a.config.Timeout)
+		return output, fmt.Errorf("command timed out after %v", a.config.Timeout)
+	}
+
+	// Check for streaming error
+	if streamErr != nil && streamErr != io.EOF {
+		logging.Error("%s: error reading output: %v", a.config.Name, streamErr)
+		return output, fmt.Errorf("error reading output: %w", streamErr)
 	}
 
 	// Check for other errors
 	if err != nil {
 		if stderr.Len() > 0 {
 			logging.Error("%s: command failed with stderr: %s", a.config.Name, stderr.String())
-			return "", fmt.Errorf("command failed: %w\nstderr: %s", err, stderr.String())
+			return output, fmt.Errorf("command failed: %w\nstderr: %s", err, stderr.String())
 		}
 		logging.Error("%s: command failed: %v", a.config.Name, err)
-		return "", fmt.Errorf("command failed: %w", err)
+		return output, fmt.Errorf("command failed: %w", err)
 	}
 
 	// Log duration for debugging
@@ -97,7 +159,7 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 		fmt.Printf("Warning: %s command took %v (timeout: %v)\n", a.config.Name, duration, a.config.Timeout)
 	}
 
-	return stdout.String(), nil
+	return output, nil
 }
 
 // Config returns the agent's configuration

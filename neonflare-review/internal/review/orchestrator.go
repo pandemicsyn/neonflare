@@ -43,10 +43,11 @@ type ProgressCallback func(event ProgressEvent)
 
 // ProgressEvent represents a progress update
 type ProgressEvent struct {
-	Type      string // "reviewer_start", "reviewer_done", "aggregator_start", "aggregator_done"
+	Type      string // "reviewer_start", "reviewer_done", "reviewer_output"
 	Reviewer  int    // 1 or 2 for reviewers, 0 for aggregator
 	AgentName string
 	Review    *agents.Review // Only set for "done" events
+	Content   string         // Partial output for "reviewer_output" events
 }
 
 // RunReview orchestrates the complete review process
@@ -101,7 +102,19 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 1, AgentName: reviewer1Name})
 		}
-		review1 = o.executeReview(ctx, reviewer1, reviewerPrompt, "") // Empty code - use tools
+		// Create streaming callback for reviewer 1
+		var outputCallback agents.OutputCallback
+		if callback != nil {
+			outputCallback = func(chunk string) {
+				callback(ProgressEvent{
+					Type:      "reviewer_output",
+					Reviewer:  1,
+					AgentName: reviewer1Name,
+					Content:   chunk,
+				})
+			}
+		}
+		review1 = o.executeReviewWithCallback(ctx, reviewer1, reviewerPrompt, "", outputCallback) // Empty code - use tools
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 1, AgentName: reviewer1Name, Review: review1})
 		}
@@ -113,7 +126,19 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 2, AgentName: reviewer2Name})
 		}
-		review2 = o.executeReview(ctx, reviewer2, reviewerPrompt, "") // Empty code - use tools
+		// Create streaming callback for reviewer 2
+		var outputCallback agents.OutputCallback
+		if callback != nil {
+			outputCallback = func(chunk string) {
+				callback(ProgressEvent{
+					Type:      "reviewer_output",
+					Reviewer:  2,
+					AgentName: reviewer2Name,
+					Content:   chunk,
+				})
+			}
+		}
+		review2 = o.executeReviewWithCallback(ctx, reviewer2, reviewerPrompt, "", outputCallback) // Empty code - use tools
 		if callback != nil {
 			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 2, AgentName: reviewer2Name, Review: review2})
 		}
@@ -142,6 +167,11 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 
 // executeReview runs a single agent review
 func (o *Orchestrator) executeReview(ctx context.Context, agent agents.Agent, prompt string, input string) *agents.Review {
+	return o.executeReviewWithCallback(ctx, agent, prompt, input, nil)
+}
+
+// executeReviewWithCallback runs a single agent review with streaming support
+func (o *Orchestrator) executeReviewWithCallback(ctx context.Context, agent agents.Agent, prompt string, input string, outputCallback agents.OutputCallback) *agents.Review {
 	review := &agents.Review{
 		AgentName: agent.Name(),
 		StartTime: time.Now(),
@@ -149,7 +179,23 @@ func (o *Orchestrator) executeReview(ctx context.Context, agent agents.Agent, pr
 
 	fmt.Printf("⏳ Starting %s review...\n", agent.Name())
 
-	output, err := agent.Execute(ctx, prompt, input)
+	// Check if agent supports streaming (has ExecuteWithCallback method)
+	var output string
+	var err error
+
+	// Use type assertion to check if agent has ExecuteWithCallback
+	switch a := agent.(type) {
+	case *agents.ClaudeAgent:
+		output, err = a.ExecuteWithCallback(ctx, prompt, input, outputCallback)
+	case *agents.KilocodeAgent:
+		output, err = a.ExecuteWithCallback(ctx, prompt, input, outputCallback)
+	case *agents.CodexAgent:
+		output, err = a.ExecuteWithCallback(ctx, prompt, input, outputCallback)
+	default:
+		// Fallback to regular Execute if streaming not supported
+		output, err = agent.Execute(ctx, prompt, input)
+	}
+
 	review.EndTime = time.Now()
 	review.Duration = review.EndTime.Sub(review.StartTime)
 
