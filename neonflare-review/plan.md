@@ -285,11 +285,13 @@ Each file includes:
 - [ ] More comprehensive tests (agents, input, output)
 - [ ] Logging
 
-### Phase 6: Documentation & Examples
-- [ ] README with usage examples
-- [ ] Example .neonflare.yaml
-- [ ] Example prompts
-- [ ] Installation instructions
+### Phase 6: Documentation & Examples ✅ COMPLETED
+- [x] README with usage examples (Quick Start section)
+- [x] Example .neonflare.yaml (.neonflare.yaml.example)
+- [x] Example prompts (prompts/reviewer.txt, prompts/aggregator.txt)
+- [x] Installation instructions (README + Makefile)
+- [x] Development guide (make targets, testing)
+- [x] Agent requirements and links
 
 ## Dependencies
 
