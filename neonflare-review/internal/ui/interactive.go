@@ -27,6 +27,7 @@ type InteractiveMode struct {
 	err            error
 	width          int
 	height         int
+	startReview    bool // Flag to indicate review should start
 }
 
 // NewInteractiveMode creates a new interactive mode session
@@ -140,8 +141,10 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return im, im.currentScreen.Init()
 			}
 			if screen.Confirmed() {
-				// Start the review with the existing UI
-				return im, im.startReview()
+				// Set flag to start review and exit interactive mode
+				im.startReview = true
+				im.done = true
+				return im, tea.Quit
 			}
 		}
 
@@ -182,59 +185,6 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the current screen
 func (im *InteractiveMode) View() string {
 	return im.currentScreen.View()
-}
-
-// startReview initiates the review process
-func (im *InteractiveMode) startReview() tea.Cmd {
-	return func() tea.Msg {
-		// Run the review with UI
-		result, err := RunWithUI(
-			im.ctx,
-			im.orchestrator,
-			im.code,
-			im.userPrompt,
-			im.selectedAgents,
-			im.config,
-			im.metadata,
-		)
-
-		if err != nil {
-			im.err = err
-			return nil
-		}
-
-		// Save reviews to files
-		writer := output.NewWriter(im.config.Output.Dir, im.config.Output.Timestamp)
-
-		file1, err := writer.SaveReview(result.Review1, im.metadata)
-		if err != nil {
-			im.err = fmt.Errorf("failed to save review 1: %w", err)
-			return nil
-		}
-
-		file2, err := writer.SaveReview(result.Review2, im.metadata)
-		if err != nil {
-			im.err = fmt.Errorf("failed to save review 2: %w", err)
-			return nil
-		}
-
-		fileAgg, err := writer.SaveAggregateReview(result.AggregateReview, im.metadata, result.Reviewer1, result.Reviewer2)
-		if err != nil {
-			im.err = fmt.Errorf("failed to save aggregate review: %w", err)
-			return nil
-		}
-
-		// Save the output files
-		im.outputFiles = []string{
-			file1,
-			file2,
-			fileAgg,
-		}
-
-		// Transition to post-review menu
-		im.currentScreen = screens.NewPostReviewModel(im.outputFiles)
-		return im.currentScreen.Init()
-	}
 }
 
 // getAllAgentNames returns all available agent names
@@ -286,6 +236,36 @@ func RunInteractive(ctx context.Context, cfg *config.Config, orch *review.Orches
 
 	if im.err != nil {
 		return im.err
+	}
+
+	// If user confirmed to start review, run it now
+	if im.startReview {
+		// Run the review with the split-screen UI
+		result, err := RunWithUI(ctx, orch, code, userPrompt, im.selectedAgents, cfg, metadata)
+		if err != nil {
+			return fmt.Errorf("review failed: %w", err)
+		}
+
+		// Save reviews to files
+		writer := output.NewWriter(cfg.Output.Dir, cfg.Output.Timestamp)
+
+		file1, err := writer.SaveReview(result.Review1, metadata)
+		if err != nil {
+			return fmt.Errorf("failed to save review 1: %w", err)
+		}
+		fmt.Printf("\nSaved %s review to: %s\n", result.Reviewer1, file1)
+
+		file2, err := writer.SaveReview(result.Review2, metadata)
+		if err != nil {
+			return fmt.Errorf("failed to save review 2: %w", err)
+		}
+		fmt.Printf("Saved %s review to: %s\n", result.Reviewer2, file2)
+
+		fileAgg, err := writer.SaveAggregateReview(result.AggregateReview, metadata, result.Reviewer1, result.Reviewer2)
+		if err != nil {
+			return fmt.Errorf("failed to save aggregate review: %w", err)
+		}
+		fmt.Printf("Saved aggregate review to: %s\n\n", fileAgg)
 	}
 
 	return nil
