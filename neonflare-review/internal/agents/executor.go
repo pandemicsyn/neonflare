@@ -87,8 +87,8 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 	var stdout strings.Builder
 	reader := bufio.NewReader(stdoutPipe)
 
-	// Read output line by line
-	done := make(chan error, 1)
+	// Read output line by line in a goroutine
+	streamDone := make(chan error, 1)
 	go func() {
 		for {
 			line, err := reader.ReadString('\n')
@@ -100,27 +100,23 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 				}
 			}
 			if err != nil {
-				if err != io.EOF {
-					done <- err
+				// EOF is normal - command finished
+				// "file already closed" can happen if cmd.Wait() closed the pipe
+				if err == io.EOF || strings.Contains(err.Error(), "file already closed") {
+					streamDone <- nil
 				} else {
-					done <- nil
+					streamDone <- err
 				}
 				return
 			}
 		}
 	}()
 
-	// Wait for either command completion or timeout
-	waitErr := make(chan error, 1)
-	go func() {
-		waitErr <- cmd.Wait()
-	}()
+	// Wait for streaming to complete first (must happen before cmd.Wait())
+	streamErr := <-streamDone
 
-	// Wait for streaming to complete
-	streamErr := <-done
-
-	// Wait for command to complete
-	err = <-waitErr
+	// Now wait for command to complete
+	err = cmd.Wait()
 	duration := time.Since(startTime)
 
 	// Get final output
@@ -136,8 +132,8 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 		return output, fmt.Errorf("command timed out after %v", a.config.Timeout)
 	}
 
-	// Check for streaming error
-	if streamErr != nil && streamErr != io.EOF {
+	// Check for streaming error (should be rare now)
+	if streamErr != nil {
 		logging.Error("%s: error reading output: %v", a.config.Name, streamErr)
 		return output, fmt.Errorf("error reading output: %w", streamErr)
 	}
