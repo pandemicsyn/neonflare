@@ -1,0 +1,29 @@
+# Neonflare Review Configuration
+# Copy this file to .neonflare.yaml and customize as needed
+
+agents:
+  codex:
+    enabled: true
+    model: "gpt-4"
+    timeout: 300s  # 5 minutes
+    cli_path: "codex"  # or full path like /usr/local/bin/codex
+
+  claude:
+    enabled: true
+    model: "claude-sonnet-4"
+    timeout: 300s
+    cli_path: "claude"
+
+  kilocode:
+    enabled: true
+    model: "default"
+    timeout: 300s
+    cli_path: "kilocode"
+
+output:
+  dir: ".neonflare-reviews"  # Where to save markdown review files
+  timestamp: true             # Add timestamp to filenames
+
+prompts:
+  reviewer_template: "prompts/reviewer.txt"
+  aggregator_template: "prompts/aggregator.txt"

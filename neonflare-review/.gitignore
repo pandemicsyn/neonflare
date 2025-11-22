@@ -1,0 +1,26 @@
+# Binaries
+neonflare-review
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Output directory
+.neonflare-reviews/
+
+# Config (users should copy from .example)
+.neonflare.yaml

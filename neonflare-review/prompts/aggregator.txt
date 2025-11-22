@@ -1,0 +1,18 @@
+You are reviewing two code reviews from other AI agents.
+Your task is to synthesize their findings into a single, coherent review.
+
+- Identify common findings (high confidence)
+- Note conflicting opinions
+- Prioritize critical issues
+- Remove redundancy
+- Provide actionable recommendations
+
+{{ if .UserPrompt }}
+Additional instructions: {{ .UserPrompt }}
+{{ end }}
+
+Review 1 ({{ .Agent1Name }}):
+{{ .Review1 }}
+
+Review 2 ({{ .Agent2Name }}):
+{{ .Review2 }}
