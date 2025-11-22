@@ -1,0 +1,334 @@
+# Neonflare Review - Multi-Agent Code Review CLI
+
+## Overview
+A Go-based CLI tool that orchestrates multiple AI agents (codex, Claude, kilocode) to perform collaborative code reviews. Two randomly selected agents perform initial reviews, and a third agent aggregates and vets the results.
+
+## Project Structure
+
+```
+neonflare-review/
+├── go.mod                          # Dedicated Go module
+├── go.sum
+├── main.go                         # Entry point
+├── cmd/
+│   ├── root.go                     # Cobra root command
+│   ├── review.go                   # Review command (default)
+│   └── version.go                  # Version command
+├── internal/
+│   ├── config/
+│   │   ├── config.go               # Config struct and loader
+│   │   └── validate.go             # Config validation
+│   ├── agents/
+│   │   ├── agent.go                # Agent interface
+│   │   ├── codex.go                # Codex CLI wrapper
+│   │   ├── claude.go               # Claude CLI wrapper
+│   │   ├── kilocode.go             # Kilocode CLI wrapper
+│   │   └── executor.go             # Common execution logic
+│   ├── review/
+│   │   ├── orchestrator.go         # Main review orchestration
+│   │   ├── prompt.go               # Prompt building and templating
+│   │   └── selector.go             # Agent selection logic
+│   ├── input/
+│   │   ├── git.go                  # Git repo scanning
+│   │   └── stdin.go                # Stdin reader
+│   ├── ui/
+│   │   ├── model.go                # Bubbletea main model
+│   │   ├── split_view.go           # Split screen for 2 reviewers
+│   │   ├── single_view.go          # Single screen for aggregate
+│   │   └── markdown.go             # Markdown rendering (glamour)
+│   └── output/
+│       ├── writer.go               # Save reviews to files
+│       └── formatter.go            # Format output
+├── prompts/
+│   ├── reviewer.txt                # Base prompt for reviewers
+│   └── aggregator.txt              # Base prompt for aggregator
+├── .neonflare.yaml.example         # Example config
+└── README.md
+```
+
+## Core Features
+
+### 1. Configuration Management
+**File:** `internal/config/config.go`
+
+```yaml
+# .neonflare.yaml
+agents:
+  codex:
+    enabled: true
+    model: "gpt-4"
+    timeout: 300s
+    cli_path: "codex"  # or full path
+
+  claude:
+    enabled: true
+    model: "claude-sonnet-4"
+    timeout: 300s
+    cli_path: "claude"
+
+  kilocode:
+    enabled: true
+    model: "default"
+    timeout: 300s
+    cli_path: "kilocode"
+
+output:
+  dir: ".neonflare-reviews"  # Where to save markdown files
+  timestamp: true             # Add timestamp to filenames
+
+prompts:
+  reviewer_template: "prompts/reviewer.txt"
+  aggregator_template: "prompts/aggregator.txt"
+```
+
+**CLI Flags Override:**
+- `--agents`: Manually specify agents (e.g., `--agents=codex,claude,kilocode`)
+- `--model-codex`, `--model-claude`, `--model-kilocode`: Override models
+- `--timeout`: Global timeout override
+- `--output-dir`: Override output directory
+- `--auto`: Enable one-shot mode (vs interactive)
+
+### 2. Agent Interface
+**File:** `internal/agents/agent.go`
+
+```go
+type Agent interface {
+    Name() string
+    Execute(ctx context.Context, prompt string, input string) (string, error)
+    IsAvailable() bool  // Check if CLI is installed
+}
+
+type AgentConfig struct {
+    Model    string
+    Timeout  time.Duration
+    CLIPath  string
+}
+```
+
+Each agent implementation (codex, claude, kilocode) wraps the installed CLI:
+- Builds command with appropriate flags
+- Passes input via stdin or temp file
+- Captures stdout as review result
+- Handles errors and timeouts
+
+### 3. Review Orchestration
+**File:** `internal/review/orchestrator.go`
+
+**Flow:**
+1. **Agent Selection:** Randomly pick 2 reviewers + 1 aggregator (or use user-specified)
+2. **Prepare Input:** Load git repo or read stdin
+3. **Build Prompts:** Combine base prompts with user instructions
+4. **Execute Reviews:** Run 2 reviewers in parallel
+5. **Aggregate:** Pass both reviews to aggregator agent
+6. **Save Results:** Write all 3 outputs as markdown files
+7. **Display:** Show aggregate review in UI
+
+**Parallel Execution:**
+- Use goroutines for the 2 reviewer agents
+- Wait for both before starting aggregator
+
+### 4. Prompt Building
+**File:** `internal/review/prompt.go`
+
+**Reviewer Prompt Template:**
+```
+You are a code reviewer. Analyze the following code and provide:
+- Issues and bugs
+- Code quality concerns
+- Security vulnerabilities
+- Performance considerations
+- Best practice violations
+
+{{ if .UserPrompt }}
+Additional instructions: {{ .UserPrompt }}
+{{ end }}
+
+Code to review:
+{{ .Code }}
+```
+
+**Aggregator Prompt Template:**
+```
+You are reviewing two code reviews from other AI agents.
+Your task is to synthesize their findings into a single, coherent review.
+
+- Identify common findings (high confidence)
+- Note conflicting opinions
+- Prioritize critical issues
+- Remove redundancy
+- Provide actionable recommendations
+
+{{ if .UserPrompt }}
+Additional instructions: {{ .UserPrompt }}
+{{ end }}
+
+Review 1 ({{ .Agent1Name }}):
+{{ .Review1 }}
+
+Review 2 ({{ .Agent2Name }}):
+{{ .Review2 }}
+```
+
+### 5. Input Handling
+
+**Git Repo Mode:**
+- Accept path to git repo
+- Option to review: working directory, staged changes, specific commit, or diff
+- Use `git diff` or `git show` to get content
+- Filter files by patterns (ignore vendored code, node_modules, etc.)
+
+**Stdin Mode:**
+- Read code from stdin
+- Useful for piping: `git diff | neonflare-review --stdin`
+
+### 6. Bubbletea UI
+
+**One-Shot Mode (`--auto`):**
+
+**Split View** (during parallel reviews):
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Review 1: Codex (gpt-4)                │ Review 2: Claude       │
+├─────────────────────────────────────────────────────────────────┤
+│                                         │                        │
+│ [Streaming output from codex...]       │ [Streaming from...]    │
+│                                         │                        │
+│ • Found SQL injection vulnerability    │ • Security issue...    │
+│ • Unused variable on line 42           │ • Performance...       │
+│ ...                                     │ ...                    │
+│                                         │                        │
+│ Status: In Progress ⚡                  │ Status: In Progress ⚡ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Single View** (during aggregation):
+```
+┌──────────────────────────────────────────────────────────┐
+│ Aggregating Reviews: Kilocode                            │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│ [Streaming aggregated review...]                        │
+│                                                          │
+│ ## Critical Issues                                       │
+│ Both reviewers identified:                               │
+│ • SQL injection vulnerability in db.go:123               │
+│   Recommendation: Use parameterized queries              │
+│                                                          │
+│ Status: In Progress ⚡                                   │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Interactive Mode** (no `--auto`):
+- Start screen: Select agents, configure options
+- Progress indicators during review
+- Final screen: Display aggregate review with markdown rendering (using glamour)
+- Options to: save, copy to clipboard, open in editor
+
+### 7. Output Management
+**File:** `internal/output/writer.go`
+
+Save 3 markdown files:
+```
+.neonflare-reviews/
+├── 2024-01-15_143022_codex_review.md
+├── 2024-01-15_143022_claude_review.md
+└── 2024-01-15_143022_aggregate.md
+```
+
+Each file includes:
+- Timestamp
+- Agent name and model
+- Input summary (repo path, commit hash, etc.)
+- Review content
+
+## Implementation Phases
+
+### Phase 1: Core Infrastructure
+- [x] Project setup (go mod init)
+- [ ] Cobra CLI structure
+- [ ] Config loader (.neonflare.yaml)
+- [ ] Agent interface definition
+- [ ] Basic orchestrator
+
+### Phase 2: Agent Implementations
+- [ ] Codex CLI wrapper
+- [ ] Claude CLI wrapper
+- [ ] Kilocode CLI wrapper
+- [ ] Executor with timeout/error handling
+
+### Phase 3: Input & Prompts
+- [ ] Git repo input handler
+- [ ] Stdin input handler
+- [ ] Prompt templates
+- [ ] Prompt builder with user instructions
+
+### Phase 4: UI (Bubbletea)
+- [ ] Basic model setup
+- [ ] Split view component
+- [ ] Single view component
+- [ ] Markdown rendering (glamour integration)
+- [ ] One-shot mode
+- [ ] Interactive mode
+
+### Phase 5: Output & Polish
+- [ ] File writer
+- [ ] Output formatting
+- [ ] Error handling improvements
+- [ ] Logging
+- [ ] Tests
+
+### Phase 6: Documentation & Examples
+- [ ] README with usage examples
+- [ ] Example .neonflare.yaml
+- [ ] Example prompts
+- [ ] Installation instructions
+
+## Dependencies
+
+```go
+require (
+    github.com/spf13/cobra          // CLI framework
+    github.com/spf13/viper          // Config management
+    github.com/charmbracelet/bubbletea  // TUI framework
+    github.com/charmbracelet/lipgloss   // TUI styling
+    github.com/charmbracelet/glamour    // Markdown rendering
+    gopkg.in/yaml.v3                // YAML parsing
+)
+```
+
+## CLI Usage Examples
+
+```bash
+# Review git repo (random agents)
+neonflare-review /path/to/repo
+
+# Review with specific agents
+neonflare-review --agents=codex,claude,kilocode /path/to/repo
+
+# Review staged changes
+neonflare-review --staged /path/to/repo
+
+# Review specific commit
+neonflare-review --commit=abc123 /path/to/repo
+
+# Review from stdin
+git diff | neonflare-review --stdin
+
+# One-shot mode with custom prompt
+neonflare-review --auto --prompt="Focus on security issues" /path/to/repo
+
+# Interactive mode (default)
+neonflare-review /path/to/repo
+
+# Specify models
+neonflare-review --model-claude=claude-opus-4 /path/to/repo
+```
+
+## Future Enhancements
+- [ ] Web UI for viewing saved reviews
+- [ ] Git integration (comment on PRs)
+- [ ] Custom agent plugins
+- [ ] Review history and comparison
+- [ ] CI/CD integration
+- [ ] Agent performance metrics
+- [ ] Parallel batch reviews (multiple files)
