@@ -267,20 +267,18 @@ Each file includes:
 - [x] Prompt builder with user instructions
 - [x] Complete CLI integration
 
-### Phase 4: UI (Bubbletea) ✅ MOSTLY COMPLETED
+### Phase 4: UI (Bubbletea) ✅ COMPLETED
 - [x] Basic model setup (Bubbletea model with state management)
 - [x] Split view component (parallel reviews side-by-side)
 - [x] Single view component (aggregate review)
 - [x] Markdown rendering (Glamour integration)
 - [x] One-shot mode with `--auto` flag
-- [ ] Fully interactive mode (see Phase 7 below)
+- [x] Fully interactive mode (Phase 7)
 
 **Current State:**
 - `--auto` mode displays beautiful split-screen UI showing parallel reviews in real-time, then switches to single view for the aggregate
-- Console mode (without `--auto`) uses simple text output
-- All CLI arguments must be specified upfront
-
-**Interactive Mode (Future):** See Phase 7 for detailed design of menu-driven TUI experience.
+- `--interactive` mode provides full menu-driven TUI experience (see Phase 7)
+- Console mode (without flags) uses simple text output
 
 ### Phase 5: Output & Polish ✅ MOSTLY COMPLETED
 - [x] File writer (saves 3 markdown files)
@@ -314,7 +312,13 @@ require (
 ## CLI Usage Examples
 
 ```bash
-# Review git repo (random agents)
+# Interactive mode - guided TUI workflow
+neonflare-review --interactive /path/to/repo
+
+# Auto mode - one-shot with split-screen UI
+neonflare-review --auto /path/to/repo
+
+# Console mode - simple text output (random agents)
 neonflare-review /path/to/repo
 
 # Review with specific agents
@@ -332,47 +336,49 @@ git diff | neonflare-review --stdin
 # One-shot mode with custom prompt
 neonflare-review --auto --prompt="Focus on security issues" /path/to/repo
 
-# Interactive mode (default)
-neonflare-review /path/to/repo
-
 # Specify models
 neonflare-review --model-claude=claude-opus-4 /path/to/repo
 ```
 
-## Phase 7: Interactive Mode (Future Enhancement)
+## Phase 7: Interactive Mode ✅ COMPLETED
 
 A fully interactive TUI experience with menu-driven navigation (like lazygit, k9s).
 
-### Components to Build
-- `internal/ui/menu.go` - Menu navigation component
-- `internal/ui/agent_picker.go` - Agent selection screen with checkboxes
-- `internal/ui/config_editor.go` - Configuration screen (models, prompts)
-- `internal/ui/confirm.go` - Review confirmation screen
-- `internal/ui/post_review.go` - Post-review action menu
-- `internal/ui/interactive.go` - Main interactive flow orchestrator
+### Components Built
+- [x] `internal/ui/screens/welcome.go` - Welcome screen with mode selection
+- [x] `internal/ui/screens/agent_selector.go` - Agent selection screen with multi-select
+- [x] `internal/ui/screens/config_editor.go` - Configuration editor (models, timeouts)
+- [x] `internal/ui/screens/confirmation.go` - Review confirmation screen
+- [x] `internal/ui/screens/post_review.go` - Post-review action menu
+- [x] `internal/ui/interactive.go` - Main interactive flow orchestrator
+- [x] CLI integration with `--interactive` flag
 
-### User Flow
-1. **Welcome Screen** - Choose what to review (repo, staged, commit, stdin)
-2. **Agent Selection** - Pick 3 agents or use random assignment
-3. **Configuration** - Override models, add custom prompts, set output dir
-4. **Confirmation** - Preview settings before starting
-5. **Review Progress** - Same split-screen/single view as `--auto` mode
-6. **Post-Review Menu** - View reviews, copy to clipboard, start new review
+### User Flow (Implemented)
+1. **Welcome Screen** - Choose between Quick Start, Custom Review, Settings, or Quit
+2. **Agent Selection** - Multi-select agents to use in the review (space to toggle)
+3. **Configuration** - Edit agent models and timeout settings
+4. **Confirmation** - Preview all settings before starting the review
+5. **Review Progress** - Beautiful split-screen/single view UI (reuses `--auto` mode)
+6. **Post-Review Menu** - View reviews, open files, start new review, or exit
 
-### Features
-- **Keyboard Navigation**: ↑↓ arrows, Enter to select, Space to toggle, `b` for back, `q` to quit
-- **Smart Defaults**: Auto-detect git repo, pre-select available agents, remember last config
-- **Input Validation**: Catch errors before starting review
-- **Visual Feedback**: Show agent availability, loading states, helpful hints
-- **Accessibility**: Help menu with `?`, clear status indicators
+### Features (Implemented)
+- **Keyboard Navigation**: ↑↓/j/k arrows, Enter to select, Space to toggle, Tab for fields, Esc/q to quit
+- **Smart Defaults**: All agents pre-selected, Quick Start mode for instant reviews
+- **Visual Feedback**: Colored borders, progress indicators, clear status messages
+- **Multiple Workflows**: Quick Start (instant), Custom Review (agent selection), Settings (config editor)
+- **Seamless Integration**: Transitions directly to existing split-screen UI for review progress
+- **Post-Review Actions**: View results, open files in editor, start new review
 
 ### Launch Methods
 ```bash
 # Launch interactive mode
-./neonflare-review --interactive
+./neonflare-review --interactive /path/to/repo
 
-# Or make it default when no args provided
-./neonflare-review
+# Or with stdin
+git diff | ./neonflare-review --interactive --stdin
+
+# Combine with other flags
+./neonflare-review --interactive --staged /path/to/repo
 ```
 
 ### Benefits

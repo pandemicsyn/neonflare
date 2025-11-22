@@ -19,10 +19,11 @@ var (
 	cfgFile string
 
 	// Global flags
-	agentsList []string
-	outputDir  string
-	autoMode   bool
-	userPrompt string
+	agentsList      []string
+	outputDir       string
+	autoMode        bool
+	interactiveMode bool
+	userPrompt      string
 )
 
 var rootCmd = &cobra.Command{
@@ -54,6 +55,7 @@ func init() {
 
 	// Mode flags
 	rootCmd.Flags().BoolVar(&autoMode, "auto", false, "run in one-shot mode with split-screen UI")
+	rootCmd.Flags().BoolVar(&interactiveMode, "interactive", false, "run in fully interactive mode with guided workflow")
 	rootCmd.Flags().Bool("stdin", false, "read code from stdin instead of git repo")
 
 	// Review options
@@ -142,7 +144,18 @@ func runReview(cmd *cobra.Command, args []string) error {
 	var result *review.Result
 	ctx := context.Background()
 
-	if autoMode {
+	if interactiveMode {
+		// Use fully interactive mode with guided workflow
+		fmt.Println("Starting interactive mode...")
+		fmt.Println() // Clear line before UI starts
+
+		err = ui.RunInteractive(ctx, cfg, orch, code, userPrompt, metadata)
+		if err != nil {
+			return fmt.Errorf("interactive mode failed: %w", err)
+		}
+		// Interactive mode handles everything including file output and display
+		return nil
+	} else if autoMode {
 		// Use Bubbletea UI for auto mode
 		fmt.Println("Starting review with interactive UI...")
 		fmt.Println() // Clear line before UI starts
