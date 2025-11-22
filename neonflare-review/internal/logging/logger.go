@@ -83,7 +83,55 @@ func Error(format string, v ...interface{}) {
 func Command(name, cmd string, args []string) {
 	if logger != nil {
 		logger.Printf("[CMD] %s: %s %v", name, cmd, args)
+
+		// Also log an example invocation that can be copy-pasted
+		// Build the command string
+		cmdStr := cmd
+		for _, arg := range args {
+			// Quote args that contain spaces
+			if len(arg) > 0 && (arg[0] == '-' || !hasSpace(arg)) {
+				cmdStr += " " + arg
+			} else {
+				cmdStr += " \"" + arg + "\""
+			}
+		}
+		logger.Printf("[CMD] Example: echo '<stdin>' | %s", cmdStr)
 	}
+}
+
+// hasSpace checks if a string contains spaces
+func hasSpace(s string) bool {
+	for _, r := range s {
+		if r == ' ' {
+			return true
+		}
+	}
+	return false
+}
+
+// SaveStdinToTempFile saves stdin content to a temp file for debugging
+func SaveStdinToTempFile(agentName, stdin string) string {
+	if logger == nil || stdin == "" {
+		return ""
+	}
+
+	// Create temp file in the same directory as the log
+	if logFile == nil {
+		return ""
+	}
+
+	// Get log directory
+	logDir := filepath.Dir(logFile.Name())
+	tempFile := filepath.Join(logDir, fmt.Sprintf("%s_stdin.txt", agentName))
+
+	// Write stdin to file
+	if err := os.WriteFile(tempFile, []byte(stdin), 0644); err != nil {
+		logger.Printf("[ERROR] Failed to save stdin to temp file: %v", err)
+		return ""
+	}
+
+	logger.Printf("[DEBUG] Saved stdin to: %s", tempFile)
+	return tempFile
 }
 
 // Output logs command output

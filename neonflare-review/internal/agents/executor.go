@@ -40,6 +40,12 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 	logging.Command(a.config.Name, a.config.CLIPath, args)
 	if stdin != "" {
 		logging.Debug("%s: stdin length: %d bytes", a.config.Name, len(stdin))
+
+		// Save stdin to temp file for debugging
+		stdinFile := logging.SaveStdinToTempFile(a.config.Name, stdin)
+		if stdinFile != "" {
+			logging.Info("%s: Test this command: cat %s | %s %v", a.config.Name, stdinFile, a.config.CLIPath, args)
+		}
 	}
 
 	// Create context with timeout
