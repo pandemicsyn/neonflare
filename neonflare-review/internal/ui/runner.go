@@ -11,6 +11,15 @@ import (
 
 // RunWithUI executes a review with the Bubbletea UI
 func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, userPrompt string, specifiedAgents []string, cfg *config.Config, metadata map[string]string) (*review.Result, error) {
+	// Ensure terminal is restored on exit
+	defer func() {
+		// Explicitly reset terminal to normal state
+		// This handles cases where Bubbletea's cleanup might not run
+		fmt.Print("\033[?25h")  // Show cursor
+		fmt.Print("\033[0m")    // Reset colors/styles
+		fmt.Print("\r\n")       // Newline
+	}()
+
 	// Select agents first
 	available := cfg.GetEnabledAgents()
 	reviewer1Name, reviewer2Name, err := review.SelectAgents(available, specifiedAgents)

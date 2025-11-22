@@ -227,6 +227,15 @@ func (im *InteractiveMode) openReviewFiles(files []string) {
 
 // RunInteractive starts the interactive mode
 func RunInteractive(ctx context.Context, cfg *config.Config, orch *review.Orchestrator, code string, userPrompt string, metadata map[string]string) error {
+	// Ensure terminal is restored on exit
+	defer func() {
+		// Explicitly reset terminal to normal state
+		// This handles cases where Bubbletea's cleanup might not run
+		fmt.Print("\033[?25h")  // Show cursor
+		fmt.Print("\033[0m")    // Reset colors/styles
+		fmt.Print("\r\n")       // Newline
+	}()
+
 	im := NewInteractiveMode(ctx, cfg, orch, code, userPrompt, metadata)
 
 	p := tea.NewProgram(im, tea.WithAltScreen())

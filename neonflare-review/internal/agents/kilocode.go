@@ -36,11 +36,25 @@ func (a *KilocodeAgent) ExecuteWithCallback(ctx context.Context, prompt string, 
 		fullPrompt,
 	}
 
-	// Execute the command
-	output, err := a.ExecuteCommand(ctx, args, "", outputCallback)
+	// Wrap the callback to strip ANSI escape sequences from streaming output
+	// Kilocode emits terminal control characters even in one-shot mode
+	var wrappedCallback OutputCallback
+	if outputCallback != nil {
+		wrappedCallback = func(chunk string) {
+			cleaned := StripANSI(chunk)
+			if len(cleaned) > 0 { // Only send non-empty chunks
+				outputCallback(cleaned)
+			}
+		}
+	}
+
+	// Execute the command with ANSI-stripping callback
+	output, err := a.ExecuteCommand(ctx, args, "", wrappedCallback)
 	if err != nil {
 		return "", fmt.Errorf("kilocode execution failed: %w", err)
 	}
 
-	return output, nil
+	// Strip ANSI from final output as well
+	cleanOutput := StripANSI(output)
+	return cleanOutput, nil
 }
