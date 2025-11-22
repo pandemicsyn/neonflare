@@ -11,7 +11,8 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// SelectAgents randomly selects 2 reviewers and 1 aggregator from available agents
+// SelectAgents selects 2 reviewers and 1 aggregator from available agents
+// Prefers kilocode and claude over codex for better performance
 // Returns (reviewer1, reviewer2, aggregator, error)
 func SelectAgents(available []string, userSpecified []string) (string, string, string, error) {
 	// If user specified agents, validate and use them
@@ -30,19 +31,40 @@ func SelectAgents(available []string, userSpecified []string) (string, string, s
 		return userSpecified[0], userSpecified[1], userSpecified[2], nil
 	}
 
-	// Random selection
-	if len(available) < 3 {
-		return "", "", "", fmt.Errorf("need at least 3 agents, but only %d are available", len(available))
+	// Need at least 3 agents (can use same agent multiple times if needed)
+	if len(available) < 2 {
+		return "", "", "", fmt.Errorf("need at least 2 agents, but only %d are available", len(available))
 	}
 
-	// Shuffle and take first 3
-	shuffled := make([]string, len(available))
-	copy(shuffled, available)
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
+	// Preferred order: kilocode, claude, codex
+	// This ensures we avoid codex (which is slow/hanging) when possible
+	preferredOrder := []string{"kilocode", "claude", "codex"}
 
-	return shuffled[0], shuffled[1], shuffled[2], nil
+	// Build list of available agents in preferred order
+	orderedAvailable := []string{}
+	for _, preferred := range preferredOrder {
+		if contains(available, preferred) {
+			orderedAvailable = append(orderedAvailable, preferred)
+		}
+	}
+
+	// Add any other agents not in the preferred list
+	for _, agent := range available {
+		if !contains(orderedAvailable, agent) {
+			orderedAvailable = append(orderedAvailable, agent)
+		}
+	}
+
+	// Select agents: use first 2 as reviewers, third as aggregator
+	// If we only have 2 agents available, use the first one twice
+	if len(orderedAvailable) >= 3 {
+		return orderedAvailable[0], orderedAvailable[1], orderedAvailable[2], nil
+	} else if len(orderedAvailable) == 2 {
+		// Use first agent for both reviewer1 and aggregator, second for reviewer2
+		return orderedAvailable[0], orderedAvailable[1], orderedAvailable[0], nil
+	} else {
+		return "", "", "", fmt.Errorf("need at least 2 agents available")
+	}
 }
 
 // contains checks if a string is in a slice

@@ -170,7 +170,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 		specifiedAgents = agentsList
 		fmt.Printf("Using specified agents: %v\n", specifiedAgents)
 	} else {
-		fmt.Println("Randomly selecting from available agents...")
+		fmt.Println("Auto-selecting agents (preference: kilocode, claude, codex)...")
 	}
 
 	// Run the review with or without UI
