@@ -40,8 +40,24 @@ type Result struct {
 	TotalDuration   time.Duration
 }
 
+// ProgressCallback is called with progress updates during the review
+type ProgressCallback func(event ProgressEvent)
+
+// ProgressEvent represents a progress update
+type ProgressEvent struct {
+	Type      string // "reviewer_start", "reviewer_done", "aggregator_start", "aggregator_done"
+	Reviewer  int    // 1 or 2 for reviewers, 0 for aggregator
+	AgentName string
+	Review    *agents.Review // Only set for "done" events
+}
+
 // RunReview orchestrates the complete review process
 func (o *Orchestrator) RunReview(ctx context.Context, code string, userPrompt string, specifiedAgents []string) (*Result, error) {
+	return o.RunReviewWithCallback(ctx, code, userPrompt, specifiedAgents, nil)
+}
+
+// RunReviewWithCallback orchestrates the review process with progress callbacks
+func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, userPrompt string, specifiedAgents []string, callback ProgressCallback) (*Result, error) {
 	startTime := time.Now()
 
 	// Get available agents
@@ -81,13 +97,25 @@ func (o *Orchestrator) RunReview(ctx context.Context, code string, userPrompt st
 	// Reviewer 1
 	go func() {
 		defer wg.Done()
+		if callback != nil {
+			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 1, AgentName: reviewer1Name})
+		}
 		review1 = o.executeReview(ctx, reviewer1, reviewerPrompt, code)
+		if callback != nil {
+			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 1, AgentName: reviewer1Name, Review: review1})
+		}
 	}()
 
 	// Reviewer 2
 	go func() {
 		defer wg.Done()
+		if callback != nil {
+			callback(ProgressEvent{Type: "reviewer_start", Reviewer: 2, AgentName: reviewer2Name})
+		}
 		review2 = o.executeReview(ctx, reviewer2, reviewerPrompt, code)
+		if callback != nil {
+			callback(ProgressEvent{Type: "reviewer_done", Reviewer: 2, AgentName: reviewer2Name, Review: review2})
+		}
 	}()
 
 	wg.Wait()
@@ -114,7 +142,13 @@ func (o *Orchestrator) RunReview(ctx context.Context, code string, userPrompt st
 	}
 
 	// Run aggregator
+	if callback != nil {
+		callback(ProgressEvent{Type: "aggregator_start", Reviewer: 0, AgentName: aggregatorName})
+	}
 	aggregateReview := o.executeReview(ctx, aggregator, aggregatorPrompt, "")
+	if callback != nil {
+		callback(ProgressEvent{Type: "aggregator_done", Reviewer: 0, AgentName: aggregatorName, Review: aggregateReview})
+	}
 
 	if aggregateReview.Error != nil {
 		return nil, fmt.Errorf("aggregator (%s) failed: %w", aggregatorName, aggregateReview.Error)

@@ -29,7 +29,50 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 	errorChan := make(chan error, 1)
 
 	go func() {
-		result, err := orch.RunReview(ctx, code, userPrompt, []string{reviewer1Name, reviewer2Name, aggregatorName})
+		// Create progress callback to send updates to UI
+		callback := func(event review.ProgressEvent) {
+			switch event.Type {
+			case "reviewer_start":
+				p.Send(ReviewUpdateMsg{
+					ReviewerNum: event.Reviewer,
+					Content:     fmt.Sprintf("Starting %s review...\n", event.AgentName),
+					Done:        false,
+				})
+			case "reviewer_done":
+				if event.Review.Error != nil {
+					p.Send(ReviewUpdateMsg{
+						ReviewerNum: event.Reviewer,
+						Content:     fmt.Sprintf("Error: %v\n", event.Review.Error),
+						Done:        true,
+					})
+				} else {
+					p.Send(ReviewUpdateMsg{
+						ReviewerNum: event.Reviewer,
+						Content:     event.Review.Content,
+						Done:        true,
+					})
+				}
+			case "aggregator_start":
+				p.Send(AggregateUpdateMsg{
+					Content: fmt.Sprintf("Starting %s aggregation...\n", event.AgentName),
+					Done:    false,
+				})
+			case "aggregator_done":
+				if event.Review.Error != nil {
+					p.Send(AggregateUpdateMsg{
+						Content: fmt.Sprintf("Error: %v\n", event.Review.Error),
+						Done:    true,
+					})
+				} else {
+					p.Send(AggregateUpdateMsg{
+						Content: event.Review.Content,
+						Done:    true,
+					})
+				}
+			}
+		}
+
+		result, err := orch.RunReviewWithCallback(ctx, code, userPrompt, []string{reviewer1Name, reviewer2Name, aggregatorName}, callback)
 		if err != nil {
 			errorChan <- err
 			return
