@@ -178,15 +178,19 @@ func (o *Orchestrator) executeReview(ctx context.Context, agent agents.Agent, pr
 		StartTime: time.Now(),
 	}
 
+	fmt.Printf("⏳ Starting %s review...\n", agent.Name())
+
 	output, err := agent.Execute(ctx, prompt, input)
 	review.EndTime = time.Now()
 	review.Duration = review.EndTime.Sub(review.StartTime)
 
 	if err != nil {
 		review.Error = err
+		fmt.Printf("❌ %s review failed after %v: %v\n", agent.Name(), review.Duration, err)
 		return review
 	}
 
+	fmt.Printf("✓ %s review completed in %v (%d bytes)\n", agent.Name(), review.Duration, len(output))
 	review.Content = output
 	return review
 }

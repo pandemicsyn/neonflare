@@ -147,13 +147,30 @@ func runReview(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Validate that required agent CLIs are available
+	available := orch.GetAvailableAgents()
+	if len(available) == 0 {
+		return fmt.Errorf("no agent CLIs are available - please install at least one of: codex, claude, kilocode")
+	}
+	if len(available) < 3 {
+		fmt.Printf("⚠️  Warning: Only %d agent(s) available: %v\n", len(available), available)
+		fmt.Println("⚠️  Multi-agent review requires 3 agents. Some may be unavailable:")
+		for _, agent := range []string{"codex", "claude", "kilocode"} {
+			if !stringInSlice(agent, available) {
+				fmt.Printf("   - %s: not found\n", agent)
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Printf("Available agents: %v\n\n", available)
+
 	// Get user-specified agents (if any)
 	var specifiedAgents []string
 	if len(agentsList) > 0 {
 		specifiedAgents = agentsList
 		fmt.Printf("Using specified agents: %v\n", specifiedAgents)
 	} else {
-		fmt.Println("Randomly selecting agents...")
+		fmt.Println("Randomly selecting from available agents...")
 	}
 
 	// Run the review with or without UI
@@ -342,4 +359,14 @@ func applyConfigOverrides(cmd *cobra.Command, cfg *config.Config) {
 		cfg.Agents.Claude.Timeout = timeout
 		cfg.Agents.Kilocode.Timeout = timeout
 	}
+}
+
+// stringInSlice checks if a string is in a slice
+func stringInSlice(str string, slice []string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }
