@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -33,6 +34,8 @@ type Model struct {
 	review2Content   strings.Builder
 	review1Done      bool
 	review2Done      bool
+	review1Progress  int // Seconds elapsed
+	review2Progress  int // Seconds elapsed
 
 	// Results
 	review1Result *agents.Review
@@ -55,6 +58,9 @@ type ReviewCompleteMsg struct {
 	Review2 *agents.Review
 }
 
+// TickMsg is sent periodically to update progress
+type TickMsg time.Time
+
 // NewModel creates a new UI model
 func NewModel(reviewer1, reviewer2, _ string, metadata map[string]string) Model {
 	return Model{
@@ -67,7 +73,14 @@ func NewModel(reviewer1, reviewer2, _ string, metadata map[string]string) Model 
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tickCmd()
+}
+
+// tickCmd sends a tick message every second
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
 }
 
 // Update handles messages
@@ -77,6 +90,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
+		return m, nil
+
+	case TickMsg:
+		// Update progress counters for in-progress reviews
+		if !m.review1Done {
+			m.review1Progress++
+		}
+		if !m.review2Done {
+			m.review2Progress++
+		}
+		// Keep ticking if reviews are still running
+		if !m.review1Done || !m.review2Done {
+			return m, tickCmd()
+		}
 		return m, nil
 
 	case ReviewUpdateMsg:
@@ -98,7 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.review1Result = msg.Review1
 		m.review2Result = msg.Review2
 		m.mode = ViewModeDone
-		return m, tea.Quit
+		return m, nil // Don't quit - let user press 'q' to exit
 
 	case tea.KeyMsg:
 		switch msg.String() {

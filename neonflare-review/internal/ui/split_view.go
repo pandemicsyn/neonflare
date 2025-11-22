@@ -36,8 +36,13 @@ func (m Model) renderSplitView() string {
 		Render(fmt.Sprintf("Reviewer 1: %s", m.reviewer1Name))
 
 	leftStatus := statusInProgress
+	progressText := ""
 	if m.review1Done {
 		leftStatus = statusComplete
+	} else if m.review1Progress > 0 {
+		progressText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#8BE9FD")).
+			Render(fmt.Sprintf(" (%ds)", m.review1Progress))
 	}
 
 	leftContent := m.review1Content.String()
@@ -52,7 +57,7 @@ func (m Model) renderSplitView() string {
 		leftContent = strings.Join(leftLines, "\n")
 	}
 
-	leftPanel := fmt.Sprintf("%s\n%s\n\n%s", leftTitle, leftStatus, leftContent)
+	leftPanel := fmt.Sprintf("%s\n%s%s\n\n%s", leftTitle, leftStatus, progressText, leftContent)
 
 	// Right panel - Reviewer 2
 	rightTitle := lipgloss.NewStyle().
@@ -61,8 +66,13 @@ func (m Model) renderSplitView() string {
 		Render(fmt.Sprintf("Reviewer 2: %s", m.reviewer2Name))
 
 	rightStatus := statusInProgress
+	progressText2 := ""
 	if m.review2Done {
 		rightStatus = statusComplete
+	} else if m.review2Progress > 0 {
+		progressText2 = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#8BE9FD")).
+			Render(fmt.Sprintf(" (%ds)", m.review2Progress))
 	}
 
 	rightContent := m.review2Content.String()
@@ -77,7 +87,7 @@ func (m Model) renderSplitView() string {
 		rightContent = strings.Join(rightLines, "\n")
 	}
 
-	rightPanel := fmt.Sprintf("%s\n%s\n\n%s", rightTitle, rightStatus, rightContent)
+	rightPanel := fmt.Sprintf("%s\n%s%s\n\n%s", rightTitle, rightStatus, progressText2, rightContent)
 
 	// Combine panels side by side
 	panels := lipgloss.JoinHorizontal(
@@ -86,10 +96,14 @@ func (m Model) renderSplitView() string {
 		panelStyle.Render(rightPanel),
 	)
 
-	// Footer
+	// Footer - change message when both reviews are done
+	footerText := "Press Ctrl+C or 'q' to quit"
+	if m.review1Done && m.review2Done {
+		footerText = "✓ Reviews complete! Press 'q' to exit and save results"
+	}
 	footer := "\n" + lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).
-		Render("Press Ctrl+C or 'q' to quit")
+		Render(footerText)
 
 	return header + panels + footer
 }
