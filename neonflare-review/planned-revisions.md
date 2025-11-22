@@ -153,3 +153,117 @@ Add ANSI stripping for Kilocode output specifically:
 - ✅ No "file already closed" errors
 - ✅ Complete output captured correctly
 - ✅ Works for all three agents (Claude, Kilocode, Codex)
+
+## Issue 3: Add Scrolling Support for Large Output
+
+### Current Problem
+- Review output can be very large (thousands of lines)
+- Currently truncating to fit panel height (showing only last N lines)
+- No way to scroll through complete output during review
+- Users can't see earlier parts of long reviews
+
+### Proposed Solution
+Add scrollable viewports using Bubbletea's viewport component:
+
+1. **Use Bubbletea Viewport Component**
+   - Files: `internal/ui/model.go`, `internal/ui/split_view.go`
+   - Add viewport from `github.com/charmbracelet/bubbles/viewport`
+   - Create two viewports (one for each reviewer panel)
+   - Viewports handle scrolling and content management automatically
+
+2. **Implementation Approach**
+   ```go
+   import "github.com/charmbracelet/bubbles/viewport"
+
+   type Model struct {
+       // ... existing fields ...
+       review1Viewport viewport.Model
+       review2Viewport viewport.Model
+       focusedPanel    int // 0 = left, 1 = right
+   }
+
+   // In Update():
+   case tea.KeyMsg:
+       switch msg.String() {
+       case "tab":
+           // Switch focus between panels
+           m.focusedPanel = (m.focusedPanel + 1) % 2
+       case "up", "k":
+           // Scroll up in focused panel
+           if m.focusedPanel == 0 {
+               m.review1Viewport, cmd = m.review1Viewport.Update(msg)
+           } else {
+               m.review2Viewport, cmd = m.review2Viewport.Update(msg)
+           }
+       case "down", "j":
+           // Scroll down in focused panel
+       case "pageup", "pagedown", "home", "end":
+           // Handle other scroll keys
+       }
+
+   case ReviewUpdateMsg:
+       // Append content to viewport
+       if msg.ReviewerNum == 1 {
+           m.review1Content += msg.Content
+           m.review1Viewport.SetContent(m.review1Content)
+           m.review1Viewport.GotoBottom() // Auto-scroll to bottom
+       }
+   ```
+
+3. **Key Bindings**
+   - `Tab` - Switch focus between left/right panels
+   - `↑/k` - Scroll up one line
+   - `↓/j` - Scroll down one line
+   - `PgUp/PgDn` - Scroll up/down one page
+   - `Home/End` - Jump to top/bottom
+   - `Ctrl+U/D` - Scroll half-page up/down
+
+4. **Visual Feedback**
+   - Highlight focused panel with different border color
+   - Show scroll position indicator (e.g., "25%", "↓ More")
+   - Dim unfocused panel slightly
+
+5. **Auto-Scroll Behavior**
+   - Auto-scroll to bottom when new content arrives
+   - Stop auto-scrolling if user manually scrolls up
+   - Resume auto-scrolling when user returns to bottom
+
+### Benefits
+- View complete output regardless of length
+- Navigate through review while it's still running
+- Compare specific sections between reviewers
+- Better user experience for large reviews
+
+### Implementation Details
+
+**File: `internal/ui/model.go`**
+- Add viewport fields to Model struct
+- Initialize viewports in NewModel()
+- Handle viewport updates in Update()
+- Manage focus state
+
+**File: `internal/ui/split_view.go`**
+- Replace manual truncation with viewport rendering
+- Add focus indicators (highlighted borders)
+- Display scroll position indicators
+
+### Testing
+- Test with reviews of varying sizes (10 lines, 100 lines, 10,000 lines)
+- Verify scrolling works smoothly
+- Test focus switching between panels
+- Verify auto-scroll behavior
+- Test all key bindings
+
+### Alternatives Considered
+1. **Custom scrolling logic** - More work, reinventing the wheel
+2. **External pager (less/more)** - Loses real-time updates
+3. **Save and view externally** - Defeats purpose of live UI
+
+### Success Criteria
+- ✅ Can scroll through complete output (not truncated)
+- ✅ Tab switches focus between panels
+- ✅ Arrow keys scroll focused panel
+- ✅ New content auto-scrolls to bottom
+- ✅ Visual feedback shows which panel is focused
+- ✅ Scroll position indicator shows location in output
+- ✅ Performance remains good with 10,000+ lines

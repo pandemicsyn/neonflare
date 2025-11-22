@@ -28,11 +28,10 @@ func (a *KilocodeAgent) ExecuteWithCallback(ctx context.Context, prompt string, 
 	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
 	// Use kilocode --auto for non-interactive execution
-	// Format: kilocode --auto --mode <mode> --json <prompt>
+	// Note: Removed --json flag as it produces excessive output
 	args := []string{
 		"--auto",
 		"--mode", "code", // Use code mode for code review
-		"--json", // Get JSON output for easier parsing
 		fullPrompt,
 	}
 

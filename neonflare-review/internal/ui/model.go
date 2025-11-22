@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,8 +29,8 @@ type Model struct {
 	// Review data
 	reviewer1Name    string
 	reviewer2Name    string
-	review1Content   strings.Builder
-	review2Content   strings.Builder
+	review1Content   string // Accumulated review content
+	review2Content   string // Accumulated review content
 	review1Done      bool
 	review2Done      bool
 	review1Progress  int // Seconds elapsed
@@ -108,12 +107,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ReviewUpdateMsg:
 		if msg.ReviewerNum == 1 {
-			m.review1Content.WriteString(msg.Content)
+			m.review1Content += msg.Content
 			if msg.Done {
 				m.review1Done = true
 			}
 		} else if msg.ReviewerNum == 2 {
-			m.review2Content.WriteString(msg.Content)
+			m.review2Content += msg.Content
 			if msg.Done {
 				m.review2Done = true
 			}

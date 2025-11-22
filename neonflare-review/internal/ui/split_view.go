@@ -45,7 +45,7 @@ func (m Model) renderSplitView() string {
 			Render(fmt.Sprintf(" (%ds)", m.review1Progress))
 	}
 
-	leftContent := m.review1Content.String()
+	leftContent := m.review1Content
 	if leftContent == "" {
 		leftContent = "Waiting for review to start..."
 	}
@@ -75,7 +75,7 @@ func (m Model) renderSplitView() string {
 			Render(fmt.Sprintf(" (%ds)", m.review2Progress))
 	}
 
-	rightContent := m.review2Content.String()
+	rightContent := m.review2Content
 	if rightContent == "" {
 		rightContent = "Waiting for review to start..."
 	}
