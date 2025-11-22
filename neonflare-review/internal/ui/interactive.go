@@ -25,6 +25,8 @@ type InteractiveMode struct {
 	outputFiles    []string
 	done           bool
 	err            error
+	width          int
+	height         int
 }
 
 // NewInteractiveMode creates a new interactive mode session
@@ -48,6 +50,12 @@ func (im *InteractiveMode) Init() tea.Cmd {
 
 // Update handles messages for the interactive mode
 func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle window size messages
+	if msg, ok := msg.(tea.WindowSizeMsg); ok {
+		im.width = msg.Width
+		im.height = msg.Height
+	}
+
 	// Update the current screen
 	var cmd tea.Cmd
 	im.currentScreen, cmd = im.currentScreen.Update(msg)
@@ -66,16 +74,20 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					im.getInputSourceDescription(),
 					im.userPrompt,
 				)
+				// Send window size to new screen
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ChoiceCustomReview:
 				// Custom review: go to agent selection
 				im.currentScreen = screens.NewAgentSelectorModel(im.getAllAgentNames())
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ChoiceSettings:
 				// Settings: go to config editor
 				im.currentScreen = screens.NewConfigEditorModel(im.config)
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ChoiceQuit:
@@ -89,6 +101,7 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if screen.Cancelled() {
 				// Go back to welcome
 				im.currentScreen = screens.NewWelcomeModel()
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 			}
 			// Store selected agents and go to confirmation
@@ -99,6 +112,7 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				im.getInputSourceDescription(),
 				im.userPrompt,
 			)
+			im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 			return im, im.currentScreen.Init()
 		}
 
@@ -107,11 +121,13 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if screen.Cancelled() {
 				// Go back to welcome
 				im.currentScreen = screens.NewWelcomeModel()
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 			}
 			// Config updated, go back to welcome
 			im.config = screen.Config()
 			im.currentScreen = screens.NewWelcomeModel()
+			im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 			return im, im.currentScreen.Init()
 		}
 
@@ -120,6 +136,7 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if screen.Cancelled() {
 				// Go back to welcome
 				im.currentScreen = screens.NewWelcomeModel()
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 			}
 			if screen.Confirmed() {
@@ -135,6 +152,7 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// View reviews (already shown in previous screen)
 				// Go back to post-review menu
 				im.currentScreen = screens.NewPostReviewModel(im.outputFiles)
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ActionOpenFiles:
@@ -142,11 +160,13 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				im.openReviewFiles(screen.OutputFiles())
 				// Go back to post-review menu
 				im.currentScreen = screens.NewPostReviewModel(im.outputFiles)
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ActionNewReview:
 				// Start a new review - go back to welcome
 				im.currentScreen = screens.NewWelcomeModel()
+				im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
 			case screens.ActionExit:
