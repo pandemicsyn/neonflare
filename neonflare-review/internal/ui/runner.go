@@ -13,13 +13,13 @@ import (
 func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, userPrompt string, specifiedAgents []string, cfg *config.Config, metadata map[string]string) (*review.Result, error) {
 	// Select agents first
 	available := cfg.GetEnabledAgents()
-	reviewer1Name, reviewer2Name, aggregatorName, err := review.SelectAgents(available, specifiedAgents)
+	reviewer1Name, reviewer2Name, err := review.SelectAgents(available, specifiedAgents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select agents: %w", err)
 	}
 
-	// Create UI model
-	model := NewModel(reviewer1Name, reviewer2Name, aggregatorName, metadata)
+	// Create UI model (no aggregator)
+	model := NewModel(reviewer1Name, reviewer2Name, "", metadata)
 
 	// Create the Bubbletea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
@@ -52,27 +52,10 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 						Done:        true,
 					})
 				}
-			case "aggregator_start":
-				p.Send(AggregateUpdateMsg{
-					Content: fmt.Sprintf("Starting %s aggregation...\n", event.AgentName),
-					Done:    false,
-				})
-			case "aggregator_done":
-				if event.Review.Error != nil {
-					p.Send(AggregateUpdateMsg{
-						Content: fmt.Sprintf("Error: %v\n", event.Review.Error),
-						Done:    true,
-					})
-				} else {
-					p.Send(AggregateUpdateMsg{
-						Content: event.Review.Content,
-						Done:    true,
-					})
-				}
 			}
 		}
 
-		result, err := orch.RunReviewWithCallback(ctx, code, userPrompt, []string{reviewer1Name, reviewer2Name, aggregatorName}, callback)
+		result, err := orch.RunReviewWithCallback(ctx, code, userPrompt, []string{reviewer1Name, reviewer2Name}, callback)
 		if err != nil {
 			errorChan <- err
 			return
@@ -81,9 +64,8 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 
 		// Send completion message to UI
 		p.Send(ReviewCompleteMsg{
-			Review1:   result.Review1,
-			Review2:   result.Review2,
-			Aggregate: result.AggregateReview,
+			Review1: result.Review1,
+			Review2: result.Review2,
 		})
 	}()
 

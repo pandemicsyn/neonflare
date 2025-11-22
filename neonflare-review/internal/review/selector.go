@@ -11,29 +11,29 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// SelectAgents selects 2 reviewers and 1 aggregator from available agents
+// SelectAgents selects 2 reviewers from available agents
 // Prefers kilocode and claude over codex for better performance
-// Returns (reviewer1, reviewer2, aggregator, error)
-func SelectAgents(available []string, userSpecified []string) (string, string, string, error) {
+// Returns (reviewer1, reviewer2, error)
+func SelectAgents(available []string, userSpecified []string) (string, string, error) {
 	// If user specified agents, validate and use them
 	if len(userSpecified) > 0 {
-		if len(userSpecified) != 3 {
-			return "", "", "", fmt.Errorf("exactly 3 agents must be specified, got %d", len(userSpecified))
+		if len(userSpecified) != 2 {
+			return "", "", fmt.Errorf("exactly 2 agents must be specified, got %d", len(userSpecified))
 		}
 
 		// Validate all specified agents are available
 		for _, specified := range userSpecified {
 			if !contains(available, specified) {
-				return "", "", "", fmt.Errorf("specified agent not available: %s", specified)
+				return "", "", fmt.Errorf("specified agent not available: %s", specified)
 			}
 		}
 
-		return userSpecified[0], userSpecified[1], userSpecified[2], nil
+		return userSpecified[0], userSpecified[1], nil
 	}
 
-	// Need at least 3 agents (can use same agent multiple times if needed)
-	if len(available) < 2 {
-		return "", "", "", fmt.Errorf("need at least 2 agents, but only %d are available", len(available))
+	// Need at least 1 agent (can use same agent for both reviewers if needed)
+	if len(available) < 1 {
+		return "", "", fmt.Errorf("need at least 1 agent available")
 	}
 
 	// Preferred order: kilocode, claude, codex
@@ -55,15 +55,13 @@ func SelectAgents(available []string, userSpecified []string) (string, string, s
 		}
 	}
 
-	// Select agents: use first 2 as reviewers, third as aggregator
-	// If we only have 2 agents available, use the first one twice
-	if len(orderedAvailable) >= 3 {
-		return orderedAvailable[0], orderedAvailable[1], orderedAvailable[2], nil
-	} else if len(orderedAvailable) == 2 {
-		// Use first agent for both reviewer1 and aggregator, second for reviewer2
-		return orderedAvailable[0], orderedAvailable[1], orderedAvailable[0], nil
+	// Select agents: use first 2 as reviewers
+	// If we only have 1 agent available, use it for both reviewers
+	if len(orderedAvailable) >= 2 {
+		return orderedAvailable[0], orderedAvailable[1], nil
 	} else {
-		return "", "", "", fmt.Errorf("need at least 2 agents available")
+		// Use same agent for both reviewers
+		return orderedAvailable[0], orderedAvailable[0], nil
 	}
 }
 

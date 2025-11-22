@@ -261,13 +261,7 @@ func RunInteractive(ctx context.Context, cfg *config.Config, orch *review.Orches
 		if err != nil {
 			return fmt.Errorf("failed to save review 2: %w", err)
 		}
-		fmt.Printf("Saved %s review to: %s\n", result.Reviewer2, file2)
-
-		fileAgg, err := writer.SaveAggregateReview(result.AggregateReview, metadata, result.Reviewer1, result.Reviewer2)
-		if err != nil {
-			return fmt.Errorf("failed to save aggregate review: %w", err)
-		}
-		fmt.Printf("Saved aggregate review to: %s\n\n", fileAgg)
+		fmt.Printf("Saved %s review to: %s\n\n", result.Reviewer2, file2)
 	}
 
 	return nil

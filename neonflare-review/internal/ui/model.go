@@ -14,7 +14,6 @@ type ViewMode int
 
 const (
 	ViewModeSplit ViewMode = iota // Split view for parallel reviews
-	ViewModeSingle                 // Single view for aggregate
 	ViewModeDone                   // Review complete
 )
 
@@ -28,20 +27,16 @@ type Model struct {
 	err           error
 
 	// Review data
-	reviewer1Name string
-	reviewer2Name string
-	aggregatorName string
-	review1Content strings.Builder
-	review2Content strings.Builder
-	aggregateContent strings.Builder
-	review1Done bool
-	review2Done bool
-	aggregateDone bool
+	reviewer1Name    string
+	reviewer2Name    string
+	review1Content   strings.Builder
+	review2Content   strings.Builder
+	review1Done      bool
+	review2Done      bool
 
 	// Results
 	review1Result *agents.Review
 	review2Result *agents.Review
-	aggregateResult *agents.Review
 
 	// Metadata
 	metadata map[string]string
@@ -54,27 +49,19 @@ type ReviewUpdateMsg struct {
 	Done        bool
 }
 
-// AggregateUpdateMsg contains aggregate review updates
-type AggregateUpdateMsg struct {
-	Content string
-	Done    bool
-}
-
 // ReviewCompleteMsg indicates all reviews are complete
 type ReviewCompleteMsg struct {
-	Review1   *agents.Review
-	Review2   *agents.Review
-	Aggregate *agents.Review
+	Review1 *agents.Review
+	Review2 *agents.Review
 }
 
 // NewModel creates a new UI model
-func NewModel(reviewer1, reviewer2, aggregator string, metadata map[string]string) Model {
+func NewModel(reviewer1, reviewer2, _ string, metadata map[string]string) Model {
 	return Model{
-		mode:           ViewModeSplit,
-		reviewer1Name:  reviewer1,
-		reviewer2Name:  reviewer2,
-		aggregatorName: aggregator,
-		metadata:       metadata,
+		mode:          ViewModeSplit,
+		reviewer1Name: reviewer1,
+		reviewer2Name: reviewer2,
+		metadata:      metadata,
 	}
 }
 
@@ -105,25 +92,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// If both reviews are done, switch to aggregate mode
-		if m.review1Done && m.review2Done && m.mode == ViewModeSplit {
-			m.mode = ViewModeSingle
-		}
-
-		return m, nil
-
-	case AggregateUpdateMsg:
-		m.aggregateContent.WriteString(msg.Content)
-		if msg.Done {
-			m.aggregateDone = true
-			m.mode = ViewModeDone
-		}
 		return m, nil
 
 	case ReviewCompleteMsg:
 		m.review1Result = msg.Review1
 		m.review2Result = msg.Review2
-		m.aggregateResult = msg.Aggregate
 		m.mode = ViewModeDone
 		return m, tea.Quit
 
@@ -152,10 +125,8 @@ func (m Model) View() string {
 	}
 
 	switch m.mode {
-	case ViewModeSplit:
+	case ViewModeSplit, ViewModeDone:
 		return m.renderSplitView()
-	case ViewModeSingle, ViewModeDone:
-		return m.renderSingleView()
 	default:
 		return "Unknown view mode"
 	}

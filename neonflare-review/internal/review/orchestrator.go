@@ -31,13 +31,11 @@ func (o *Orchestrator) RegisterAgent(agent agents.Agent) {
 
 // Result contains the complete review results
 type Result struct {
-	Reviewer1       string
-	Reviewer2       string
-	Aggregator      string
-	Review1         *agents.Review
-	Review2         *agents.Review
-	AggregateReview *agents.Review
-	TotalDuration   time.Duration
+	Reviewer1     string
+	Reviewer2     string
+	Review1       *agents.Review
+	Review2       *agents.Review
+	TotalDuration time.Duration
 }
 
 // ProgressCallback is called with progress updates during the review
@@ -63,8 +61,8 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 	// Get available agents
 	available := o.cfg.GetEnabledAgents()
 
-	// Select agents
-	reviewer1Name, reviewer2Name, aggregatorName, err := SelectAgents(available, specifiedAgents)
+	// Select agents (just 2 reviewers, no aggregator)
+	reviewer1Name, reviewer2Name, err := SelectAgents(available, specifiedAgents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select agents: %w", err)
 	}
@@ -72,9 +70,8 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 	// Get agent instances
 	reviewer1 := o.agents[reviewer1Name]
 	reviewer2 := o.agents[reviewer2Name]
-	aggregator := o.agents[aggregatorName]
 
-	if reviewer1 == nil || reviewer2 == nil || aggregator == nil {
+	if reviewer1 == nil || reviewer2 == nil {
 		return nil, fmt.Errorf("one or more selected agents not registered")
 	}
 
@@ -132,42 +129,14 @@ func (o *Orchestrator) RunReviewWithCallback(ctx context.Context, code string, u
 		return nil, fmt.Errorf("reviewer2 (%s) failed: %w", reviewer2Name, review2.Error)
 	}
 
-	// Build aggregator prompt
-	aggregatorPrompt, err := BuildAggregatorPrompt(
-		o.cfg.Prompts.AggregatorTemplate,
-		reviewer1Name,
-		reviewer2Name,
-		review1.Content,
-		review2.Content,
-		userPrompt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build aggregator prompt: %w", err)
-	}
-
-	// Run aggregator
-	if callback != nil {
-		callback(ProgressEvent{Type: "aggregator_start", Reviewer: 0, AgentName: aggregatorName})
-	}
-	aggregateReview := o.executeReview(ctx, aggregator, aggregatorPrompt, "")
-	if callback != nil {
-		callback(ProgressEvent{Type: "aggregator_done", Reviewer: 0, AgentName: aggregatorName, Review: aggregateReview})
-	}
-
-	if aggregateReview.Error != nil {
-		return nil, fmt.Errorf("aggregator (%s) failed: %w", aggregatorName, aggregateReview.Error)
-	}
-
 	totalDuration := time.Since(startTime)
 
 	return &Result{
-		Reviewer1:       reviewer1Name,
-		Reviewer2:       reviewer2Name,
-		Aggregator:      aggregatorName,
-		Review1:         review1,
-		Review2:         review2,
-		AggregateReview: aggregateReview,
-		TotalDuration:   totalDuration,
+		Reviewer1:     reviewer1Name,
+		Reviewer2:     reviewer2Name,
+		Review1:       review1,
+		Review2:       review2,
+		TotalDuration: totalDuration,
 	}, nil
 }
 

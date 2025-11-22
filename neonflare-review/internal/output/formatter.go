@@ -40,8 +40,8 @@ func FormatReviewSummary(review *agents.Review) string {
 }
 
 // FormatResults creates a formatted summary of all review results
-func FormatResults(reviewer1Name, reviewer2Name, aggregatorName string,
-	review1, review2, aggregate *agents.Review, totalDuration string) string {
+func FormatResults(reviewer1Name, reviewer2Name string,
+	review1, review2 *agents.Review, totalDuration string) string {
 
 	var sb strings.Builder
 
@@ -53,8 +53,7 @@ func FormatResults(reviewer1Name, reviewer2Name, aggregatorName string,
 
 	sb.WriteString("Reviewers:\n")
 	sb.WriteString(fmt.Sprintf("  1. %s (%v)\n", reviewer1Name, review1.Duration))
-	sb.WriteString(fmt.Sprintf("  2. %s (%v)\n", reviewer2Name, review2.Duration))
-	sb.WriteString(fmt.Sprintf("  Aggregator: %s (%v)\n\n", aggregatorName, aggregate.Duration))
+	sb.WriteString(fmt.Sprintf("  2. %s (%v)\n\n", reviewer2Name, review2.Duration))
 
 	return sb.String()
 }

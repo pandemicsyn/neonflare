@@ -210,10 +210,8 @@ func runReview(cmd *cobra.Command, args []string) error {
 		fmt.Println(output.FormatResults(
 			result.Reviewer1,
 			result.Reviewer2,
-			result.Aggregator,
 			result.Review1,
 			result.Review2,
-			result.AggregateReview,
 			result.TotalDuration.String(),
 		))
 	}
@@ -231,16 +229,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to save review 2: %w", err)
 	}
-	fmt.Printf("Saved %s review to: %s\n", result.Reviewer2, file2)
-
-	fileAgg, err := writer.SaveAggregateReview(result.AggregateReview, metadata, result.Reviewer1, result.Reviewer2)
-	if err != nil {
-		return fmt.Errorf("failed to save aggregate review: %w", err)
-	}
-	fmt.Printf("Saved aggregate review to: %s\n\n", fileAgg)
-
-	// Display the aggregate review
-	fmt.Println(result.AggregateReview.Content)
+	fmt.Printf("Saved %s review to: %s\n\n", result.Reviewer2, file2)
 
 	return nil
 }

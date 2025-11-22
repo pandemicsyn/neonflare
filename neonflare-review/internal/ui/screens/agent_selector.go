@@ -10,8 +10,9 @@ import (
 // AgentSelectorModel represents the agent selection screen
 type AgentSelectorModel struct {
 	availableAgents []string
-	selected        map[string]bool
-	cursor          int
+	reviewer1Index  int // Index into availableAgents
+	reviewer2Index  int // Index into availableAgents
+	focusedField    int // 0 = reviewer1, 1 = reviewer2
 	done            bool
 	cancelled       bool
 	width           int
@@ -20,16 +21,18 @@ type AgentSelectorModel struct {
 
 // NewAgentSelectorModel creates a new agent selector
 func NewAgentSelectorModel(availableAgents []string) AgentSelectorModel {
-	selected := make(map[string]bool)
-	// Default: all agents selected
-	for _, agent := range availableAgents {
-		selected[agent] = true
+	// Default to first two agents (or first agent twice if only one available)
+	reviewer1 := 0
+	reviewer2 := 0
+	if len(availableAgents) > 1 {
+		reviewer2 = 1
 	}
 
 	return AgentSelectorModel{
 		availableAgents: availableAgents,
-		selected:        selected,
-		cursor:          0,
+		reviewer1Index:  reviewer1,
+		reviewer2Index:  reviewer2,
+		focusedField:    0,
 		done:            false,
 		cancelled:       false,
 	}
@@ -56,31 +59,51 @@ func (m AgentSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			// Move focus between fields
+			if m.focusedField > 0 {
+				m.focusedField--
 			}
 
 		case "down", "j":
-			if m.cursor < len(m.availableAgents)-1 {
-				m.cursor++
+			// Move focus between fields
+			if m.focusedField < 1 {
+				m.focusedField++
 			}
 
-		case " ":
-			// Toggle selection
-			agent := m.availableAgents[m.cursor]
-			m.selected[agent] = !m.selected[agent]
-
-		case "enter":
-			// Confirm selection (need at least one agent)
-			selectedCount := 0
-			for _, sel := range m.selected {
-				if sel {
-					selectedCount++
+		case "left", "h":
+			// Change selection for focused field
+			if m.focusedField == 0 {
+				if m.reviewer1Index > 0 {
+					m.reviewer1Index--
+				} else {
+					m.reviewer1Index = len(m.availableAgents) - 1
+				}
+			} else {
+				if m.reviewer2Index > 0 {
+					m.reviewer2Index--
+				} else {
+					m.reviewer2Index = len(m.availableAgents) - 1
 				}
 			}
-			if selectedCount > 0 {
-				m.done = true
+
+		case "right", "l":
+			// Change selection for focused field
+			if m.focusedField == 0 {
+				if m.reviewer1Index < len(m.availableAgents)-1 {
+					m.reviewer1Index++
+				} else {
+					m.reviewer1Index = 0
+				}
+			} else {
+				if m.reviewer2Index < len(m.availableAgents)-1 {
+					m.reviewer2Index++
+				} else {
+					m.reviewer2Index = 0
+				}
 			}
+
+		case "enter":
+			m.done = true
 			return m, nil
 		}
 	}
@@ -100,63 +123,74 @@ func (m AgentSelectorModel) View() string {
 		Foreground(lipgloss.Color("#7D56F4")).
 		Padding(1, 0)
 
-	title := titleStyle.Render("Select Agents")
+	title := titleStyle.Render("Select Reviewers")
 
 	// Description
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#999999")).
 		Padding(0, 0, 1, 0)
 
-	selectedCount := 0
-	for _, sel := range m.selected {
-		if sel {
-			selectedCount++
-		}
+	desc := descStyle.Render("Choose which agents to use as reviewers (can pick the same agent twice)")
+
+	// Field styles
+	labelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#AAAAAA")).
+		Width(15)
+
+	focusedStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7D56F4")).
+		Background(lipgloss.Color("#3C3C3C")).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Padding(0, 1)
+
+	// Reviewer 1 field
+	reviewer1Label := labelStyle.Render("Reviewer 1:")
+	reviewer1Value := m.availableAgents[m.reviewer1Index]
+	if m.focusedField == 0 {
+		reviewer1Value = focusedStyle.Render(fmt.Sprintf("< %s >", reviewer1Value))
+	} else {
+		reviewer1Value = normalStyle.Render(reviewer1Value)
 	}
+	reviewer1Line := fmt.Sprintf("%s %s", reviewer1Label, reviewer1Value)
 
-	desc := descStyle.Render(fmt.Sprintf("Choose which agents to use for the review (selected: %d)", selectedCount))
+	// Reviewer 2 field
+	reviewer2Label := labelStyle.Render("Reviewer 2:")
+	reviewer2Value := m.availableAgents[m.reviewer2Index]
+	if m.focusedField == 1 {
+		reviewer2Value = focusedStyle.Render(fmt.Sprintf("< %s >", reviewer2Value))
+	} else {
+		reviewer2Value = normalStyle.Render(reviewer2Value)
+	}
+	reviewer2Line := fmt.Sprintf("%s %s", reviewer2Label, reviewer2Value)
 
-	// Agent list
-	menuStyle := lipgloss.NewStyle().
+	// Form content
+	formStyle := lipgloss.NewStyle().
 		Padding(1, 2)
 
-	var menuItems []string
-	for i, agent := range m.availableAgents {
-		cursor := "  "
-		if m.cursor == i {
-			cursor = "▶ "
-		}
-
-		checkbox := "☐"
-		if m.selected[agent] {
-			checkbox = "☑"
-		}
-
-		itemStyle := lipgloss.NewStyle()
-		if m.cursor == i {
-			itemStyle = itemStyle.
-				Bold(true).
-				Foreground(lipgloss.Color("#7D56F4"))
-		}
-
-		menuItems = append(menuItems, fmt.Sprintf("%s%s %s", cursor, checkbox, itemStyle.Render(agent)))
-	}
-
-	menu := menuStyle.Render(lipgloss.JoinVertical(lipgloss.Left, menuItems...))
+	form := formStyle.Render(lipgloss.JoinVertical(
+		lipgloss.Left,
+		reviewer1Line,
+		"",
+		reviewer2Line,
+	))
 
 	// Help
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).
 		Padding(1, 0)
 
-	help := helpStyle.Render("↑/↓ or j/k: navigate • space: toggle • enter: confirm • esc: back")
+	help := helpStyle.Render("↑/↓: switch field • ←/→: change agent • enter: confirm • esc: back")
 
 	// Combine all sections
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
 		desc,
-		menu,
+		form,
 		help,
 	)
 
@@ -180,13 +214,10 @@ func (m AgentSelectorModel) Cancelled() bool {
 	return m.cancelled
 }
 
-// SelectedAgents returns the list of selected agent names
+// SelectedAgents returns [reviewer1, reviewer2] (may be duplicates)
 func (m AgentSelectorModel) SelectedAgents() []string {
-	var result []string
-	for _, agent := range m.availableAgents {
-		if m.selected[agent] {
-			result = append(result, agent)
-		}
+	return []string{
+		m.availableAgents[m.reviewer1Index],
+		m.availableAgents[m.reviewer2Index],
 	}
-	return result
 }
