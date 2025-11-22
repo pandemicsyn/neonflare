@@ -8,6 +8,7 @@ import (
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/agents"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/config"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/input"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/logging"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/ui"
@@ -100,6 +101,20 @@ func runReview(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+
+	// Initialize logging
+	logDir := cfg.Output.Dir
+	if logDir == "" {
+		logDir = ".neonflare-reviews"
+	}
+	if err := logging.Init(logDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to initialize logging: %v\n", err)
+	} else {
+		defer logging.Close()
+	}
+
+	logging.Info("Neonflare Review v0.1.0 started")
+	logging.Info("Config file: %s", cfgFile)
 
 	// Override config with CLI flags
 	applyConfigOverrides(cmd, cfg)

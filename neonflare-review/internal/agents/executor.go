@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/logging"
 )
 
 // BaseAgent provides common functionality for all agents
@@ -34,6 +36,12 @@ func (a *BaseAgent) IsAvailable() bool {
 
 // ExecuteCommand runs a command with timeout and returns stdout
 func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin string) (string, error) {
+	// Log the command being executed
+	logging.Command(a.config.Name, a.config.CLIPath, args)
+	if stdin != "" {
+		logging.Debug("%s: stdin length: %d bytes", a.config.Name, len(stdin))
+	}
+
 	// Create context with timeout
 	timeoutCtx, cancel := context.WithTimeout(ctx, a.config.Timeout)
 	defer cancel()
@@ -56,22 +64,30 @@ func (a *BaseAgent) ExecuteCommand(ctx context.Context, args []string, stdin str
 	err := cmd.Run()
 	duration := time.Since(startTime)
 
+	// Log the output
+	logging.Output(a.config.Name, stdout.String(), stderr.String())
+	logging.Info("%s: command completed in %v", a.config.Name, duration)
+
 	// Check for timeout
 	if timeoutCtx.Err() == context.DeadlineExceeded {
+		logging.Error("%s: command timed out after %v", a.config.Name, a.config.Timeout)
 		return "", fmt.Errorf("command timed out after %v", a.config.Timeout)
 	}
 
 	// Check for other errors
 	if err != nil {
 		if stderr.Len() > 0 {
+			logging.Error("%s: command failed with stderr: %s", a.config.Name, stderr.String())
 			return "", fmt.Errorf("command failed: %w\nstderr: %s", err, stderr.String())
 		}
+		logging.Error("%s: command failed: %v", a.config.Name, err)
 		return "", fmt.Errorf("command failed: %w", err)
 	}
 
 	// Log duration for debugging
 	if duration > a.config.Timeout/2 {
 		// Warning: command took more than half the timeout
+		logging.Info("%s: command took %v (timeout: %v)", a.config.Name, duration, a.config.Timeout)
 		fmt.Printf("Warning: %s command took %v (timeout: %v)\n", a.config.Name, duration, a.config.Timeout)
 	}
 

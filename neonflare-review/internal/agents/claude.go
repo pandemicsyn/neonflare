@@ -23,17 +23,16 @@ func (a *ClaudeAgent) Execute(ctx context.Context, prompt string, input string) 
 	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
 	// Use claude --print for non-interactive execution
-	// Format: claude --print --model <model> <prompt>
+	// Pass prompt via stdin to avoid command-line length limits
 	args := []string{
 		"--print",
 		"--model", a.config.Model,
 		"--output-format", "text",
 		"--dangerously-skip-permissions", // For autonomous execution
-		fullPrompt,
 	}
 
-	// Execute the command
-	output, err := a.ExecuteCommand(ctx, args, "")
+	// Execute the command with prompt via stdin
+	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
 	if err != nil {
 		return "", fmt.Errorf("claude execution failed: %w", err)
 	}

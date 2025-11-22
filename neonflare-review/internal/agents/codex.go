@@ -23,16 +23,15 @@ func (a *CodexAgent) Execute(ctx context.Context, prompt string, input string) (
 	fullPrompt := fmt.Sprintf("%s\n\nCode to review:\n%s", prompt, input)
 
 	// Use codex exec for non-interactive execution
-	// Format: codex exec -m <model> <prompt>
+	// Pass prompt via stdin to avoid command-line length limits
 	args := []string{
 		"exec",
 		"-m", a.config.Model,
 		"--dangerously-bypass-approvals-and-sandbox", // For autonomous execution
-		fullPrompt,
 	}
 
-	// Execute the command
-	output, err := a.ExecuteCommand(ctx, args, "")
+	// Execute the command with prompt via stdin
+	output, err := a.ExecuteCommand(ctx, args, fullPrompt)
 	if err != nil {
 		return "", fmt.Errorf("codex execution failed: %w", err)
 	}
