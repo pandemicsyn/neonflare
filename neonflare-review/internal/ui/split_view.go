@@ -110,14 +110,22 @@ func (m Model) renderSplitView() string {
 		rightPanelStyle.Render(rightPanel),
 	)
 
-	// Footer - change message when both reviews are done
-	footerText := "Tab: switch panel | ↑/↓: scroll | g: top | G: bottom | q: quit"
+	// Footer - split into left status and right shortcuts
+	var statusMsg string
+	shortcuts := "Tab: switch | ↑/↓: scroll | g: top | G: bottom | q: quit"
+
 	if m.review1Done && m.review2Done {
-		footerText = "✓ Reviews complete! Tab: switch | g: top | G: bottom | q: exit and save"
+		statusMsg = "✓ Reviews complete!"
+		shortcuts = "Tab: switch | g: top | G: bottom | q: exit"
 	}
-	footer := "\n" + lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
-		Render(footerText)
+
+	// Create footer with status on left and shortcuts on right
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+
+	statusText := footerStyle.Render(statusMsg)
+	shortcutsText := footerStyle.Copy().Align(lipgloss.Right).Width(m.width - len(statusMsg)).Render(shortcuts)
+
+	footer := "\n" + lipgloss.JoinHorizontal(lipgloss.Top, statusText, shortcutsText)
 
 	return header + panels + footer
 }
