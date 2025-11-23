@@ -20,19 +20,24 @@ var (
 	cfgFile string
 
 	// Global flags
-	agentsList      []string
-	outputDir       string
-	autoMode        bool
-	interactiveMode bool
-	userPrompt      string
+	agentsList []string
+	outputDir  string
+	quickMode  bool // Skip interactive flow, run review immediately
+	userPrompt string
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "neonflare-review [path|--stdin]",
-	Short: "Multi-agent code review tool",
-	Long: `Neonflare Review orchestrates multiple AI agents (codex, Claude, kilocode)
-to perform collaborative code reviews. Two randomly selected agents perform
-initial reviews, and a third agent aggregates and vets the results.`,
+	Use:   "neonflare-review [path]",
+	Short: "Interactive multi-agent code review tool",
+	Long: `Neonflare Review provides an interactive TUI for orchestrating multiple AI
+agents (Claude, Kilocode, Codex) to perform collaborative code reviews.
+
+By default, launches an interactive guided workflow where you can:
+- Select which AI agents to use as reviewers
+- Configure review options
+- View reviews side-by-side in real-time with scrolling support
+
+Use --quick to skip the interactive flow and start reviews immediately.`,
 	Version: "0.1.0",
 	Args:    cobra.MaximumNArgs(1), // Accept 0 or 1 positional argument (the path)
 	RunE:    runReview,
@@ -52,12 +57,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .neonflare.yaml)")
 
 	// Agent selection flags
-	rootCmd.Flags().StringSliceVar(&agentsList, "agents", []string{}, "specify agents to use (e.g., codex,claude,kilocode)")
+	rootCmd.Flags().StringSliceVar(&agentsList, "agents", []string{}, "specify agents to use (e.g., claude,kilocode,codex)")
 	rootCmd.Flags().StringVar(&outputDir, "output-dir", "", "directory to save review files")
 
 	// Mode flags
-	rootCmd.Flags().BoolVar(&autoMode, "auto", false, "run in one-shot mode with split-screen UI")
-	rootCmd.Flags().BoolVar(&interactiveMode, "interactive", false, "run in fully interactive mode with guided workflow")
+	rootCmd.Flags().BoolVar(&quickMode, "quick", false, "skip interactive flow and start review immediately")
 	rootCmd.Flags().Bool("stdin", false, "read code from stdin instead of git repo")
 
 	// Review options
@@ -173,50 +177,37 @@ func runReview(cmd *cobra.Command, args []string) error {
 		fmt.Println("Auto-selecting agents (preference: kilocode, claude, codex)...")
 	}
 
-	// Run the review with or without UI
-	var result *review.Result
+	// Run the review
 	ctx := context.Background()
 
-	if interactiveMode {
-		// Use fully interactive mode with guided workflow
-		fmt.Println("Starting interactive mode...")
+	if quickMode {
+		// Quick mode: Skip interactive flow and start review immediately with split-screen UI
+		fmt.Println("Starting review with split-screen UI...")
 		fmt.Println() // Clear line before UI starts
 
-		err = ui.RunInteractive(ctx, cfg, orch, code, userPrompt, metadata)
-		if err != nil {
-			return fmt.Errorf("interactive mode failed: %w", err)
-		}
-		// Interactive mode handles everything including file output and display
-		return nil
-	} else if autoMode {
-		// Use Bubbletea UI for auto mode
-		fmt.Println("Starting review with interactive UI...")
-		fmt.Println() // Clear line before UI starts
-
-		result, err = ui.RunWithUI(ctx, orch, code, userPrompt, specifiedAgents, cfg, metadata)
-		if err != nil {
-			return fmt.Errorf("review failed: %w", err)
-		}
-	} else {
-		// Use console output for non-auto mode
-		fmt.Println("Starting review process...")
-
-		result, err = orch.RunReview(ctx, code, userPrompt, specifiedAgents)
+		result, err := ui.RunWithUI(ctx, orch, code, userPrompt, specifiedAgents, cfg, metadata)
 		if err != nil {
 			return fmt.Errorf("review failed: %w", err)
 		}
 
-		// Display summary for console mode
-		fmt.Println(output.FormatResults(
-			result.Reviewer1,
-			result.Reviewer2,
-			result.Review1,
-			result.Review2,
-			result.TotalDuration.String(),
-		))
+		// Save reviews to files
+		return saveReviewFiles(result, cfg, metadata)
 	}
 
-	// Save reviews to files
+	// Default: Interactive mode with guided workflow
+	fmt.Println("Starting interactive mode...")
+	fmt.Println() // Clear line before UI starts
+
+	err = ui.RunInteractive(ctx, cfg, orch, code, userPrompt, metadata)
+	if err != nil {
+		return fmt.Errorf("interactive mode failed: %w", err)
+	}
+	// Interactive mode handles everything including file output and display
+	return nil
+}
+
+// saveReviewFiles saves review results to files and prints the file paths
+func saveReviewFiles(result *review.Result, cfg *config.Config, metadata map[string]string) error {
 	writer := output.NewWriter(cfg.Output.Dir, cfg.Output.Timestamp)
 
 	file1, err := writer.SaveReview(result.Review1, metadata)
