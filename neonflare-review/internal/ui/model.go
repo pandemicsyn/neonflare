@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/glamour"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/agents"
@@ -42,6 +43,9 @@ type Model struct {
 	review2Viewport viewport.Model
 	focusedPanel    int // 0 = left (review1), 1 = right (review2)
 
+	// Markdown renderer
+	markdownRenderer *glamour.TermRenderer
+
 	// Results
 	review1Result *agents.Review
 	review2Result *agents.Review
@@ -75,14 +79,21 @@ func NewModel(reviewer1, reviewer2, _ string, metadata map[string]string) Model 
 	vp2 := viewport.New(80, 20)
 	vp2.SetContent("Waiting for review to start...")
 
+	// Create Glamour markdown renderer with dark theme
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(80), // Will be updated on WindowSizeMsg
+	)
+
 	return Model{
-		mode:            ViewModeSplit,
-		reviewer1Name:   reviewer1,
-		reviewer2Name:   reviewer2,
-		metadata:        metadata,
-		review1Viewport: vp1,
-		review2Viewport: vp2,
-		focusedPanel:    0, // Start with left panel focused
+		mode:             ViewModeSplit,
+		reviewer1Name:    reviewer1,
+		reviewer2Name:    reviewer2,
+		metadata:         metadata,
+		review1Viewport:  vp1,
+		review2Viewport:  vp2,
+		focusedPanel:     0, // Start with left panel focused
+		markdownRenderer: renderer,
 	}
 }
 
@@ -116,6 +127,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.review2Viewport.Width = halfWidth - 4
 		m.review2Viewport.Height = contentHeight - 3
 
+		// Update Glamour word wrap width to match viewport
+		if m.markdownRenderer != nil {
+			m.markdownRenderer, _ = glamour.NewTermRenderer(
+				glamour.WithAutoStyle(),
+				glamour.WithWordWrap(halfWidth-6), // Match viewport width
+			)
+		}
+
 		return m, nil
 
 	case TickMsg:
@@ -135,14 +154,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ReviewUpdateMsg:
 		if msg.ReviewerNum == 1 {
 			m.review1Content += msg.Content
-			m.review1Viewport.SetContent(m.review1Content)
+			// Render markdown and set viewport content
+			rendered := m.renderMarkdown(m.review1Content)
+			m.review1Viewport.SetContent(rendered)
 			m.review1Viewport.GotoBottom() // Auto-scroll to show new content
 			if msg.Done {
 				m.review1Done = true
 			}
 		} else if msg.ReviewerNum == 2 {
 			m.review2Content += msg.Content
-			m.review2Viewport.SetContent(m.review2Content)
+			// Render markdown and set viewport content
+			rendered := m.renderMarkdown(m.review2Content)
+			m.review2Viewport.SetContent(rendered)
 			m.review2Viewport.GotoBottom() // Auto-scroll to show new content
 			if msg.Done {
 				m.review2Done = true
@@ -273,3 +296,23 @@ var (
 			Bold(true).
 			Render("✅ Complete")
 )
+
+// renderMarkdown renders markdown content with Glamour
+// Returns plain text if rendering fails
+func (m Model) renderMarkdown(markdown string) string {
+	if markdown == "" {
+		return "Waiting for review to start..."
+	}
+
+	if m.markdownRenderer == nil {
+		return markdown // Fallback to plain text
+	}
+
+	rendered, err := m.markdownRenderer.Render(markdown)
+	if err != nil {
+		// If rendering fails, return plain markdown
+		return markdown
+	}
+
+	return rendered
+}
