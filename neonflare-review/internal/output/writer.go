@@ -122,3 +122,38 @@ func (w *Writer) buildAggregateContent(review *agents.Review, metadata map[strin
 
 	return content
 }
+
+// SaveAggregation saves aggregation content to a file (simpler version)
+func (w *Writer) SaveAggregation(aggregatorName string, content string, metadata map[string]string, reviewer1, reviewer2 string) (string, error) {
+	// Ensure output directory exists
+	if err := os.MkdirAll(w.outputDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Generate filename
+	filename := w.generateFilename("aggregated", "review")
+	filepath := filepath.Join(w.outputDir, filename)
+
+	// Build file content
+	fileContent := fmt.Sprintf("# Aggregated Code Review\n\n")
+	fileContent += "## Metadata\n\n"
+	fileContent += fmt.Sprintf("- **Aggregator**: %s\n", aggregatorName)
+	fileContent += fmt.Sprintf("- **Reviewers**: %s, %s\n", reviewer1, reviewer2)
+	fileContent += fmt.Sprintf("- **Timestamp**: %s\n", time.Now().Format(time.RFC3339))
+
+	// Add custom metadata
+	for key, value := range metadata {
+		fileContent += fmt.Sprintf("- **%s**: %s\n", key, value)
+	}
+
+	fileContent += "\n## Synthesized Review\n\n"
+	fileContent += content
+	fileContent += "\n"
+
+	// Write to file
+	if err := os.WriteFile(filepath, []byte(fileContent), 0644); err != nil {
+		return "", fmt.Errorf("failed to write aggregation file: %w", err)
+	}
+
+	return filepath, nil
+}

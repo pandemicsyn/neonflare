@@ -116,7 +116,7 @@ func (m Model) renderSplitView() string {
 
 	if m.review1Done && m.review2Done {
 		statusMsg = "✓ Reviews complete!"
-		shortcuts = "Tab: switch | g: top | G: bottom | q: exit"
+		shortcuts = "s: aggregate | Tab: switch | g: top | G: bottom | q: exit"
 	}
 
 	// Create footer with status on left and shortcuts on right

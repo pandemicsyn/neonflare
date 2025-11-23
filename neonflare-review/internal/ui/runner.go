@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/agents"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/config"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
 )
 
@@ -27,8 +29,8 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 		return nil, fmt.Errorf("failed to select agents: %w", err)
 	}
 
-	// Create UI model (no aggregator)
-	model := NewModel(reviewer1Name, reviewer2Name, "", metadata)
+	// Create UI model with available agents for aggregation
+	model := NewModelWithAgents(ctx, orch, reviewer1Name, reviewer2Name, metadata, available)
 
 	// Create the Bubbletea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
@@ -84,6 +86,9 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 			Review1: result.Review1,
 			Review2: result.Review2,
 		})
+
+		// Wait for aggregation trigger (if user presses 's')
+		// This will be handled by listening to the program's messages
 	}()
 
 	// Start the UI
@@ -98,11 +103,90 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 		return nil, err
 	case result := <-resultChan:
 		// Verify the model is in the correct state
-		if m, ok := finalModel.(Model); ok && m.err != nil {
-			return nil, m.err
+		if m, ok := finalModel.(Model); ok {
+			if m.err != nil {
+				return nil, m.err
+			}
+
+			// Save aggregation if it was done
+			if m.aggregationDone && m.aggregationContent != "" {
+				writer := output.NewWriter(cfg.Output.Dir, cfg.Output.Timestamp)
+				aggregationPath, err := writer.SaveAggregation(
+					m.aggregatorName,
+					m.aggregationContent,
+					metadata,
+					reviewer1Name,
+					reviewer2Name,
+				)
+				if err != nil {
+					fmt.Printf("\n⚠️  Failed to save aggregation: %v\n", err)
+				} else {
+					fmt.Printf("\n✅ Saved aggregated review to: %s\n", aggregationPath)
+				}
+			}
 		}
 		return result, nil
 	default:
 		return nil, fmt.Errorf("review did not complete")
 	}
+}
+
+// RunAggregation runs the aggregation flow within an existing UI model
+// This is called when the user presses 's' to aggregate reviews
+// Note: This function is deprecated as aggregation is now handled directly in the Model's Update loop
+func RunAggregation(ctx context.Context, model Model, orch *review.Orchestrator, cfg *config.Config, p *tea.Program) (Model, error) {
+	// Aggregation is now handled directly in the Model's Update loop
+	// This function is kept for compatibility but is no longer used
+	return model, nil
+}
+
+// ExecuteAggregation executes the aggregation with a selected agent
+func ExecuteAggregation(ctx context.Context, agentName string, review1Content string, review2Content string, orch *review.Orchestrator, metadata map[string]string, p *tea.Program) (string, error) {
+	// Build aggregation prompt
+	aggregationPrompt := `Please review, validate, and aggregate these two independently performed code reviews for this repo/branch/changes.
+
+Prioritize issues based on severity. Output should be markdown formatted and fairly terse. Praise is not required, stick to relevant details and actionable info.
+
+## Review 1
+` + review1Content + `
+
+## Review 2
+` + review2Content
+
+	// Get the agent
+	agent := orch.GetAgent(agentName)
+	if agent == nil {
+		return "", fmt.Errorf("agent %s not found", agentName)
+	}
+
+	// Create output callback
+	outputCallback := func(chunk string) {
+		if p != nil {
+			p.Send(AggregationUpdateMsg{
+				Content: chunk,
+				Done:    false,
+			})
+		}
+	}
+
+	// Execute aggregation with streaming
+	var output string
+	var err error
+
+	switch a := agent.(type) {
+	case *agents.ClaudeAgent:
+		output, err = a.ExecuteWithCallback(ctx, aggregationPrompt, "", outputCallback)
+	case *agents.KilocodeAgent:
+		output, err = a.ExecuteWithCallback(ctx, aggregationPrompt, "", outputCallback)
+	case *agents.CodexAgent:
+		output, err = a.ExecuteWithCallback(ctx, aggregationPrompt, "", outputCallback)
+	default:
+		output, err = agent.Execute(ctx, aggregationPrompt, "")
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("aggregation failed: %w", err)
+	}
+
+	return output, nil
 }

@@ -220,3 +220,8 @@ func (o *Orchestrator) GetAvailableAgents() []string {
 	}
 	return available
 }
+
+// GetAgent returns an agent by name
+func (o *Orchestrator) GetAgent(name string) agents.Agent {
+	return o.agents[name]
+}
