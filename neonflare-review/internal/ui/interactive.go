@@ -67,8 +67,8 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if screen.Done() {
 			switch screen.Selected() {
 			case screens.ChoiceQuickStart:
-				// Quick start: use all agents, go straight to confirmation
-				im.selectedAgents = im.getAllAgentNames()
+				// Quick start: select 2 preferred agents, go straight to confirmation
+				im.selectedAgents = im.getTwoRandomAgents()
 				im.currentScreen = screens.NewConfirmationModel(
 					im.config,
 					im.selectedAgents,
@@ -190,6 +190,41 @@ func (im *InteractiveMode) View() string {
 // getAllAgentNames returns all available agent names
 func (im *InteractiveMode) getAllAgentNames() []string {
 	return im.config.GetEnabledAgents()
+}
+
+// getTwoRandomAgents returns 2 random agents from the available list
+// Prefers kilocode and claude over codex (as per selector preference)
+func (im *InteractiveMode) getTwoRandomAgents() []string {
+	available := im.config.GetEnabledAgents()
+	if len(available) == 0 {
+		return []string{}
+	}
+
+	// Preferred order: kilocode, claude, codex
+	preferredOrder := []string{"kilocode", "claude", "codex"}
+
+	// Build list of available agents in preferred order
+	orderedAvailable := []string{}
+	for _, preferred := range preferredOrder {
+		for _, agent := range available {
+			if agent == preferred {
+				orderedAvailable = append(orderedAvailable, agent)
+				break
+			}
+		}
+	}
+
+	// If we have 2 or more agents, return the first 2 (most preferred)
+	if len(orderedAvailable) >= 2 {
+		return []string{orderedAvailable[0], orderedAvailable[1]}
+	}
+
+	// If we only have 1 agent, use it twice
+	if len(orderedAvailable) == 1 {
+		return []string{orderedAvailable[0], orderedAvailable[0]}
+	}
+
+	return orderedAvailable
 }
 
 // getInputSourceDescription returns a human-readable description of the input source
