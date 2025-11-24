@@ -11,27 +11,42 @@ import (
 
 // ConfirmationModel represents the confirmation screen
 type ConfirmationModel struct {
-	config        *config.Config
-	selectedAgents []string
-	inputSource   string
-	userPrompt    string
-	confirmed     bool
-	cancelled     bool
-	done          bool
-	width         int
-	height        int
+	config          *config.Config
+	selectedAgents  []string
+	selectedProfile string
+	inputSource     string
+	userPrompt      string
+	confirmed       bool
+	cancelled       bool
+	done            bool
+	width           int
+	height          int
 }
 
 // NewConfirmationModel creates a new confirmation screen
 func NewConfirmationModel(cfg *config.Config, selectedAgents []string, inputSource string, userPrompt string) ConfirmationModel {
 	return ConfirmationModel{
-		config:        cfg,
+		config:         cfg,
 		selectedAgents: selectedAgents,
-		inputSource:   inputSource,
-		userPrompt:    userPrompt,
-		confirmed:     false,
-		cancelled:     false,
-		done:          false,
+		inputSource:    inputSource,
+		userPrompt:     userPrompt,
+		confirmed:      false,
+		cancelled:      false,
+		done:           false,
+	}
+}
+
+// NewConfirmationModelWithProfile creates a confirmation screen with prompt profile
+func NewConfirmationModelWithProfile(cfg *config.Config, selectedAgents []string, selectedProfile string, inputSource string, userPrompt string) ConfirmationModel {
+	return ConfirmationModel{
+		config:          cfg,
+		selectedAgents:  selectedAgents,
+		selectedProfile: selectedProfile,
+		inputSource:     inputSource,
+		userPrompt:      userPrompt,
+		confirmed:       false,
+		cancelled:       false,
+		done:            false,
 	}
 }
 
@@ -124,6 +139,17 @@ func (m ConfirmationModel) View() string {
 	settings = append(settings,
 		labelStyle.Render("Input Source:"),
 		valueStyle.Render("  "+m.inputSource),
+		"",
+	)
+
+	// Prompt profile
+	profileDisplay := "Default (Generic Review)"
+	if m.selectedProfile != "" {
+		profileDisplay = m.selectedProfile
+	}
+	settings = append(settings,
+		labelStyle.Render("Prompt Profile:"),
+		valueStyle.Render("  "+profileDisplay),
 		"",
 	)
 

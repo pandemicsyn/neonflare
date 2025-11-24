@@ -10,6 +10,7 @@ import (
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/input"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/logging"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/prompts"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/ui"
 	"github.com/spf13/cobra"
@@ -185,7 +186,13 @@ func runReview(cmd *cobra.Command, args []string) error {
 		fmt.Println("Starting review with split-screen UI...")
 		fmt.Println() // Clear line before UI starts
 
-		result, err := ui.RunWithUI(ctx, orch, code, userPrompt, specifiedAgents, cfg, metadata)
+		// Initialize profile manager (but don't use profiles in quick mode)
+		pm, err := prompts.NewProfileManager()
+		if err != nil {
+			fmt.Printf("Warning: failed to initialize prompt profiles: %v\n", err)
+		}
+
+		result, err := ui.RunWithUI(ctx, orch, code, userPrompt, specifiedAgents, cfg, metadata, pm, "")
 		if err != nil {
 			return fmt.Errorf("review failed: %w", err)
 		}

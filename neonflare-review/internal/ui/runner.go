@@ -8,11 +8,12 @@ import (
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/agents"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/config"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/prompts"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
 )
 
 // RunWithUI executes a review with the Bubbletea UI
-func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, userPrompt string, specifiedAgents []string, cfg *config.Config, metadata map[string]string) (*review.Result, error) {
+func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, userPrompt string, specifiedAgents []string, cfg *config.Config, metadata map[string]string, pm *prompts.ProfileManager, selectedProfile string) (*review.Result, error) {
 	// Ensure terminal is restored on exit
 	defer func() {
 		// Explicitly reset terminal to normal state
@@ -34,6 +35,20 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 
 	// Create the Bubbletea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	// Build effective user prompt based on selected profile
+	effectivePrompt := userPrompt
+	if selectedProfile != "" && pm != nil {
+		profile := pm.GetProfile(selectedProfile)
+		if profile != nil {
+			// Prepend profile content to user prompt
+			if userPrompt != "" {
+				effectivePrompt = profile.Content + "\n\nAdditional instructions:\n" + userPrompt
+			} else {
+				effectivePrompt = profile.Content
+			}
+		}
+	}
 
 	// Run the review in a goroutine and send updates to the UI
 	resultChan := make(chan *review.Result, 1)
@@ -74,7 +89,7 @@ func RunWithUI(ctx context.Context, orch *review.Orchestrator, code string, user
 			}
 		}
 
-		result, err := orch.RunReviewWithCallback(ctx, code, userPrompt, []string{reviewer1Name, reviewer2Name}, callback)
+		result, err := orch.RunReviewWithCallback(ctx, code, effectivePrompt, []string{reviewer1Name, reviewer2Name}, callback)
 		if err != nil {
 			errorChan <- err
 			return

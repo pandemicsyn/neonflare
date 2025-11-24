@@ -93,8 +93,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("agents.kilocode.timeout", 300*time.Second)
 	v.SetDefault("agents.kilocode.cli_path", "kilocode")
 
-	// Output defaults
-	v.SetDefault("output.dir", ".neonflare-reviews")
+	// Output defaults - use ~/.config/neonflare/reviews
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		v.SetDefault("output.dir", fmt.Sprintf("%s/.config/neonflare/reviews", homeDir))
+	} else {
+		// Fallback to local directory if home dir can't be determined
+		v.SetDefault("output.dir", ".neonflare-reviews")
+	}
 	v.SetDefault("output.timestamp", true)
 
 	// Prompt defaults

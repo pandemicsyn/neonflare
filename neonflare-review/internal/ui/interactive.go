@@ -8,39 +8,50 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/config"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/output"
+	"github.com/pandemicsyn/neonflare/neonflare-review/internal/prompts"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/review"
 	"github.com/pandemicsyn/neonflare/neonflare-review/internal/ui/screens"
 )
 
 // InteractiveMode represents the interactive TUI flow
 type InteractiveMode struct {
-	ctx            context.Context
-	config         *config.Config
-	orchestrator   *review.Orchestrator
-	code           string
-	userPrompt     string
-	metadata       map[string]string
-	currentScreen  tea.Model
-	selectedAgents []string
-	outputFiles    []string
-	done           bool
-	err            error
-	width          int
-	height         int
-	startReview    bool // Flag to indicate review should start
+	ctx             context.Context
+	config          *config.Config
+	orchestrator    *review.Orchestrator
+	code            string
+	userPrompt      string
+	metadata        map[string]string
+	currentScreen   tea.Model
+	selectedAgents  []string
+	selectedProfile string // Selected prompt profile name ("" for default)
+	profileManager  *prompts.ProfileManager
+	outputFiles     []string
+	done            bool
+	err             error
+	width           int
+	height          int
+	startReview     bool // Flag to indicate review should start
 }
 
 // NewInteractiveMode creates a new interactive mode session
 func NewInteractiveMode(ctx context.Context, cfg *config.Config, orch *review.Orchestrator, code string, userPrompt string, metadata map[string]string) *InteractiveMode {
+	// Initialize profile manager
+	pm, err := prompts.NewProfileManager()
+	if err != nil {
+		fmt.Printf("Warning: failed to initialize prompt profiles: %v\n", err)
+		// Continue without profiles
+	}
+
 	return &InteractiveMode{
-		ctx:          ctx,
-		config:       cfg,
-		orchestrator: orch,
-		code:         code,
-		userPrompt:   userPrompt,
-		metadata:     metadata,
-		currentScreen: screens.NewWelcomeModel(),
-		done:         false,
+		ctx:            ctx,
+		config:         cfg,
+		orchestrator:   orch,
+		code:           code,
+		userPrompt:     userPrompt,
+		metadata:       metadata,
+		currentScreen:  screens.NewWelcomeModel(),
+		profileManager: pm,
+		done:           false,
 	}
 }
 
@@ -105,11 +116,44 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 			}
-			// Store selected agents and go to confirmation
+			// Store selected agents and go to prompt selection
 			im.selectedAgents = screen.SelectedAgents()
+
+			// Check if we have any profiles available
+			if im.profileManager != nil && im.profileManager.HasProfiles() {
+				// Show prompt selector
+				profileNames := im.profileManager.GetProfileNames()
+				im.currentScreen = screens.NewPromptSelectorModel(profileNames)
+				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
+				return im, im.currentScreen.Init()
+			}
+
+			// No profiles - go straight to confirmation with default prompt
+			im.selectedProfile = ""
 			im.currentScreen = screens.NewConfirmationModel(
 				im.config,
 				im.selectedAgents,
+				im.getInputSourceDescription(),
+				im.userPrompt,
+			)
+			im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
+			return im, im.currentScreen.Init()
+		}
+
+	case screens.PromptSelectorModel:
+		if screen.Done() {
+			if screen.Cancelled() {
+				// Go back to agent selection
+				im.currentScreen = screens.NewAgentSelectorModel(im.getAllAgentNames())
+				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
+				return im, im.currentScreen.Init()
+			}
+			// Store selected profile and go to confirmation
+			im.selectedProfile = screen.SelectedProfile()
+			im.currentScreen = screens.NewConfirmationModelWithProfile(
+				im.config,
+				im.selectedAgents,
+				im.selectedProfile,
 				im.getInputSourceDescription(),
 				im.userPrompt,
 			)
@@ -287,7 +331,7 @@ func RunInteractive(ctx context.Context, cfg *config.Config, orch *review.Orches
 		fmt.Println("\n🚀 Starting review with split-screen UI...\n")
 
 		// Run the review with the split-screen UI
-		result, err := RunWithUI(ctx, orch, code, userPrompt, im.selectedAgents, cfg, metadata)
+		result, err := RunWithUI(ctx, orch, code, userPrompt, im.selectedAgents, cfg, metadata, im.profileManager, im.selectedProfile)
 		if err != nil {
 			return fmt.Errorf("review failed: %w", err)
 		}
