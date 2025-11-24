@@ -91,8 +91,13 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return im, im.currentScreen.Init()
 
 			case screens.ChoiceCustomReview:
-				// Custom review: go to agent selection
-				im.currentScreen = screens.NewAgentSelectorModel(im.getAllAgentNames())
+				// Custom review: go to agent selection (with profiles if available)
+				if im.profileManager != nil && im.profileManager.HasProfiles() {
+					profileNames := im.profileManager.GetProfileNames()
+					im.currentScreen = screens.NewAgentSelectorModelWithProfiles(im.getAllAgentNames(), profileNames)
+				} else {
+					im.currentScreen = screens.NewAgentSelectorModel(im.getAllAgentNames())
+				}
 				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 
@@ -116,39 +121,8 @@ func (im *InteractiveMode) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
 				return im, im.currentScreen.Init()
 			}
-			// Store selected agents and go to prompt selection
+			// Store selected agents and profile, go to confirmation
 			im.selectedAgents = screen.SelectedAgents()
-
-			// Check if we have any profiles available
-			if im.profileManager != nil && im.profileManager.HasProfiles() {
-				// Show prompt selector
-				profileNames := im.profileManager.GetProfileNames()
-				im.currentScreen = screens.NewPromptSelectorModel(profileNames)
-				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
-				return im, im.currentScreen.Init()
-			}
-
-			// No profiles - go straight to confirmation with default prompt
-			im.selectedProfile = ""
-			im.currentScreen = screens.NewConfirmationModel(
-				im.config,
-				im.selectedAgents,
-				im.getInputSourceDescription(),
-				im.userPrompt,
-			)
-			im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
-			return im, im.currentScreen.Init()
-		}
-
-	case screens.PromptSelectorModel:
-		if screen.Done() {
-			if screen.Cancelled() {
-				// Go back to agent selection
-				im.currentScreen = screens.NewAgentSelectorModel(im.getAllAgentNames())
-				im.currentScreen, _ = im.currentScreen.Update(tea.WindowSizeMsg{Width: im.width, Height: im.height})
-				return im, im.currentScreen.Init()
-			}
-			// Store selected profile and go to confirmation
 			im.selectedProfile = screen.SelectedProfile()
 			im.currentScreen = screens.NewConfirmationModelWithProfile(
 				im.config,

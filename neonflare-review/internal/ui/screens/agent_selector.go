@@ -10,9 +10,11 @@ import (
 // AgentSelectorModel represents the agent selection screen
 type AgentSelectorModel struct {
 	availableAgents []string
-	reviewer1Index  int // Index into availableAgents
-	reviewer2Index  int // Index into availableAgents
-	focusedField    int // 0 = reviewer1, 1 = reviewer2
+	reviewer1Index  int      // Index into availableAgents
+	reviewer2Index  int      // Index into availableAgents
+	profileNames    []string // List of profile names (including "Default")
+	profileIndex    int      // Index into profileNames
+	focusedField    int      // 0 = reviewer1, 1 = reviewer2, 2 = profile
 	done            bool
 	cancelled       bool
 	width           int
@@ -32,6 +34,32 @@ func NewAgentSelectorModel(availableAgents []string) AgentSelectorModel {
 		availableAgents: availableAgents,
 		reviewer1Index:  reviewer1,
 		reviewer2Index:  reviewer2,
+		profileNames:    []string{}, // Will be set later if profiles available
+		profileIndex:    0,           // Default to "Default" which will be at index 0
+		focusedField:    0,
+		done:            false,
+		cancelled:       false,
+	}
+}
+
+// NewAgentSelectorModelWithProfiles creates a new agent selector with prompt profiles
+func NewAgentSelectorModelWithProfiles(availableAgents []string, profileNames []string) AgentSelectorModel {
+	// Default to first two agents (or first agent twice if only one available)
+	reviewer1 := 0
+	reviewer2 := 0
+	if len(availableAgents) > 1 {
+		reviewer2 = 1
+	}
+
+	// Prepend "Default" to profile names
+	profiles := append([]string{"Default"}, profileNames...)
+
+	return AgentSelectorModel{
+		availableAgents: availableAgents,
+		reviewer1Index:  reviewer1,
+		reviewer2Index:  reviewer2,
+		profileNames:    profiles,
+		profileIndex:    0, // Start with "Default" selected
 		focusedField:    0,
 		done:            false,
 		cancelled:       false,
@@ -66,7 +94,11 @@ func (m AgentSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "down", "j":
 			// Move focus between fields
-			if m.focusedField < 1 {
+			maxField := 1 // reviewer1, reviewer2
+			if len(m.profileNames) > 0 {
+				maxField = 2 // reviewer1, reviewer2, profile
+			}
+			if m.focusedField < maxField {
 				m.focusedField++
 			}
 
@@ -78,11 +110,17 @@ func (m AgentSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.reviewer1Index = len(m.availableAgents) - 1
 				}
-			} else {
+			} else if m.focusedField == 1 {
 				if m.reviewer2Index > 0 {
 					m.reviewer2Index--
 				} else {
 					m.reviewer2Index = len(m.availableAgents) - 1
+				}
+			} else if m.focusedField == 2 {
+				if m.profileIndex > 0 {
+					m.profileIndex--
+				} else {
+					m.profileIndex = len(m.profileNames) - 1
 				}
 			}
 
@@ -94,11 +132,17 @@ func (m AgentSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.reviewer1Index = 0
 				}
-			} else {
+			} else if m.focusedField == 1 {
 				if m.reviewer2Index < len(m.availableAgents)-1 {
 					m.reviewer2Index++
 				} else {
 					m.reviewer2Index = 0
+				}
+			} else if m.focusedField == 2 {
+				if m.profileIndex < len(m.profileNames)-1 {
+					m.profileIndex++
+				} else {
+					m.profileIndex = 0
 				}
 			}
 
@@ -171,11 +215,28 @@ func (m AgentSelectorModel) View() string {
 	formStyle := lipgloss.NewStyle().
 		Padding(1, 2)
 
-	form := formStyle.Render(lipgloss.JoinVertical(
-		lipgloss.Left,
+	formLines := []string{
 		reviewer1Line,
 		"",
 		reviewer2Line,
+	}
+
+	// Add profile field if profiles are available
+	if len(m.profileNames) > 0 {
+		profileLabel := labelStyle.Render("Prompt Profile:")
+		profileValue := m.profileNames[m.profileIndex]
+		if m.focusedField == 2 {
+			profileValue = focusedStyle.Render(fmt.Sprintf("< %s >", profileValue))
+		} else {
+			profileValue = normalStyle.Render(profileValue)
+		}
+		profileLine := fmt.Sprintf("%s %s", profileLabel, profileValue)
+		formLines = append(formLines, "", profileLine)
+	}
+
+	form := formStyle.Render(lipgloss.JoinVertical(
+		lipgloss.Left,
+		formLines...,
 	))
 
 	// Help
@@ -220,4 +281,16 @@ func (m AgentSelectorModel) SelectedAgents() []string {
 		m.availableAgents[m.reviewer1Index],
 		m.availableAgents[m.reviewer2Index],
 	}
+}
+
+// SelectedProfile returns the selected profile name ("" for Default)
+func (m AgentSelectorModel) SelectedProfile() string {
+	if len(m.profileNames) == 0 {
+		return "" // No profiles available
+	}
+	selected := m.profileNames[m.profileIndex]
+	if selected == "Default" {
+		return "" // Empty string indicates default prompt
+	}
+	return selected
 }
