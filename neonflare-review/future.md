@@ -61,75 +61,63 @@ Human reviewers leave consistent feedback on PRs. By mining these comments, we c
 
 ### Implementation Strategy
 
-#### Phase 1: PR Comment Collection
+**Core Approach:** Let the agents do the intelligent work! Instead of writing complex parsing/clustering code, we prompt an agent to analyze PR comments and extract patterns.
+
+#### Phase 1: Prompt-Based Mining
+
+When user runs: `neonflare-review mine-rules --repo owner/repo --prs 100`
+
+We construct a prompt and send it to a selected agent (e.g., claude or kilocode):
+
+```
+Please use the GitHub CLI tool (gh) to fetch the last 100 merged pull requests
+from the repository owner/repo, then analyze the PR comments for commonly flagged
+issues or high-signal feedback that automated reviews should explicitly look for.
+
+Your task:
+1. Use `gh pr list --state merged --limit 100 --json number` to get PR numbers
+2. For each PR, fetch review comments with `gh pr view <number> --json comments`
+3. Analyze the comments to identify patterns that appear multiple times
+4. Focus on actionable, specific feedback (not general praise or discussion)
+5. Generate a structured review prompt profile
+
+Output format should be a markdown file with:
+- A list of common issues/patterns found
+- Frequency of each pattern
+- Specific guidance for reviewers
+- Examples from the actual PR comments
+
+Format the output as a prompt profile that can be used directly for reviews.
+```
+
+The agent will:
+- Execute `gh` commands via Bash tool
+- Parse the JSON output
+- Identify patterns intelligently (it's an LLM, it's good at this!)
+- Generate structured markdown output
+
+#### Phase 2: Save Results
+
+Take the agent's output and save it to:
+```
+~/.config/neonflare/reviewer-prompts/rules/
+  team-rules-{repo-name}-{date}.md
+```
+
+User can then use it: `neonflare-review --profile team-rules-myrepo-2024-01-15`
+
+#### Phase 3: Iteration & Refinement
+
 ```bash
-# Use gh CLI to fetch PR comments
-gh pr list --state merged --limit 100 --json number
-gh pr view <number> --json comments
+# Update rules with more recent PRs
+neonflare-review mine-rules --repo owner/repo --prs 50 --since "30 days ago" --update
 
-# Extract review comments (not general discussion)
-# Focus on:
-# - File-specific comments
-# - Change requests
-# - Patterns that appear multiple times
+# This prompts the agent to:
+# 1. Load existing rules file
+# 2. Fetch new PRs since last update
+# 3. Merge new patterns with existing ones
+# 4. Update frequencies and examples
 ```
-
-#### Phase 2: Pattern Extraction
-
-**Input:** Raw PR comments from GitHub
-**Output:** Structured review rules
-
-```yaml
-# Example mined rule
-rule:
-  pattern: "unnecessary try-catch"
-  frequency: 12  # Appeared in 12 PRs
-  examples:
-    - "This try-catch isn't needed here - the error will bubble up"
-    - "We don't need to catch this, let it propagate"
-    - "Remove this try-catch wrapper, it's redundant"
-
-  generated_instruction: |
-    Look for unnecessary try-catch blocks that don't add value:
-    - Catch blocks that just rethrow
-    - Wrapping already-safe operations
-    - Generic error handling without context
-```
-
-#### Phase 3: Rule Application
-
-**Option A: Generate Prompt Profiles**
-```markdown
-# Auto-generated: frontend-team-rules.md
-Based on 100 recent PRs reviewed by the team.
-
-Common issues to watch for:
-
-1. **Unnecessary try-catch blocks** (mentioned 12 times)
-   - Look for catch blocks that only rethrow
-   - Flag wrapping of operations that can't fail
-
-2. **Missing accessibility attributes** (mentioned 8 times)
-   - Every interactive element needs aria-label
-   - Buttons should have descriptive text or aria-label
-
-3. **Console.log statements** (mentioned 15 times)
-   - No console.log in production code
-   - Use proper logging framework
-```
-
-**Option B: Direct Rule Injection**
-- Add rules to review prompt dynamically
-- Weight rules by frequency/importance
-- Update rules weekly/monthly
-
-#### Phase 4: Continuous Learning
-
-**Feedback Loop:**
-1. Run reviews with mined rules
-2. Track which flagged issues get fixed
-3. Increase weight of effective rules
-4. Deprecate rules that don't lead to changes
 
 ### CLI Interface
 
@@ -157,56 +145,73 @@ neonflare-review mine-rules --update --since "30 days ago"
 
 ### Technical Design
 
-```
-internal/mining/
-  collector.go      - Fetch PR comments via gh CLI
-  parser.go         - Parse comments, extract patterns
-  clusterer.go      - Group similar comments
-  generator.go      - Generate prompt profiles from rules
+**Much simpler than originally planned!** We leverage the existing agent infrastructure.
 
-Storage:
-  ~/.config/neonflare/mined-rules/
-    raw-comments.json          - Cached PR comments
-    patterns.json              - Extracted patterns with metadata
-    team-rules.md              - Generated prompt profile
-    effectiveness-scores.json  - Track rule effectiveness
 ```
+cmd/mine_rules.go
+  - Parse CLI flags: --repo, --prs, --since, --update, --agent
+  - Build mining prompt
+  - Execute agent with prompt
+  - Save output to ~/.config/neonflare/reviewer-prompts/rules/
+
+internal/mining/
+  prompt.go         - Build mining prompt templates
+  runner.go         - Execute agent with mining prompt
+  saver.go          - Save results to rules directory
+```
+
+**Storage:**
+```
+~/.config/neonflare/reviewer-prompts/
+  rules/
+    team-rules-myrepo-2024-01-15.md
+    team-rules-myrepo-2024-02-15.md  (updated version)
+    team-rules-otherrepo-2024-01-20.md
+```
+
+**Key insight:** The agent does the hard work of:
+- Fetching data via `gh` CLI
+- Parsing JSON responses
+- Identifying patterns (LLMs are great at this!)
+- Generating structured output
+- Clustering similar issues
+
+We just need to:
+1. Build the prompt
+2. Run the agent
+3. Save the result
 
 ### Advanced Features
 
-#### Semantic Clustering
-- Use LLM to cluster similar comments (e.g., group all async/await issues)
-- Generate rule categories automatically
-- Detect new emerging patterns
-
-#### Team-Specific Learning
-```bash
-# Different teams, different rules
-neonflare-review mine-rules --repo owner/repo --team frontend
-neonflare-review mine-rules --repo owner/repo --team backend
-
-# Generates:
-# - frontend-team-rules.md
-# - backend-team-rules.md
-```
-
-#### Severity Detection
-- Analyze comment tone and language
-- Classify as: critical, important, suggestion, nitpick
-- Weight rules by severity in review prompts
-
 #### Evolution Tracking
+Prompt the agent to compare old vs new rules:
+
 ```bash
 # See how team standards evolve
-neonflare-review mine-rules --compare "6 months ago" vs "now"
+neonflare-review mine-rules --repo owner/repo --prs 100 --compare team-rules-myrepo-2023-08-15.md
 
-# Output:
-# New concerns (last 6 months):
-#   - Performance: React re-renders (8 mentions)
-#   - Security: Input sanitization (6 mentions)
-#
-# Resolved concerns:
-#   - Linting issues (dropped from 20 to 2)
+# Agent prompt includes:
+# "Compare these new patterns with the existing rules file. Highlight:
+# - New concerns that have emerged
+# - Issues that are now resolved/less common
+# - Changes in frequency/severity"
+```
+
+#### Custom Focus Areas
+```bash
+# Focus on specific areas
+neonflare-review mine-rules --repo owner/repo --focus "security,performance"
+
+# Agent prompt includes:
+# "Focus specifically on security and performance-related comments"
+```
+
+#### Multi-Repo Aggregation
+```bash
+# Mine patterns across multiple repos
+neonflare-review mine-rules --repos "org/repo1,org/repo2,org/repo3" --prs 50
+
+# Agent analyzes all repos and generates unified rules
 ```
 
 ### Privacy & Ethics
